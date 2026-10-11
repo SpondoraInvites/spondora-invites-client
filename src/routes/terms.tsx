@@ -14,7 +14,7 @@ export const Route = createFileRoute("/terms")({
     <LegalPage title="Terms of Service" sections={[
       { h: "Orders", p: "An order is confirmed once we receive your details and payment. We then personalise your chosen design." },
       { h: "Revisions", p: "Small corrections are included after the first draft. Larger design changes may carry an extra fee." },
-      { h: "Your content", p: "You confirm you have the right to use the names, photos and music you send us." },
+      { h: "Your content", p: "You confirm you have the right to use the names and photos you send us. Invites do not include client-chosen songs or instruments — only nature sounds or halal, instrument-free nasheeds." },
       { h: "Link availability", p: "Your invitation link stays live for at least 12 months after the wedding date." },
     ]} />
   ),

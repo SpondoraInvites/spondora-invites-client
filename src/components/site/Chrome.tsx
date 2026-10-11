@@ -13,14 +13,14 @@ const nav = [
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link to="/" className="flex items-center gap-2.5" aria-label="Spondora Invites home">
-      <span className={`grid h-9 w-9 place-items-center rounded-full border font-display text-lg italic ${light ? "border-gold text-gold" : "border-gold text-primary"}`}>
-        S
-      </span>
-      <span className="leading-none">
-        <span className={`block font-display text-xl ${light ? "text-ivory" : "text-primary"}`}>Spondora</span>
-        <span className={`eyebrow !text-[0.55rem] ${light ? "text-gold" : "text-muted-foreground"}`}>Invites</span>
-      </span>
+    <Link to="/" className="flex items-center" aria-label="Spondora Invites home">
+      <img
+        src="/logo-lockup.png"
+        alt="Spondora Invites"
+        width={158}
+        height={103}
+        className={`w-auto object-contain ${light ? "h-14" : "h-12"}`}
+      />
     </Link>
   );
 }

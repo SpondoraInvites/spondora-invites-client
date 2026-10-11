@@ -1,6 +1,5 @@
 import type { Tier } from "./templates";
 
-// PLACEHOLDER prices — confirm with owner. Every price on the site reads from here.
 export const currency = { code: "BDT", symbol: "৳" };
 
 export interface PricingTier {
@@ -16,22 +15,22 @@ export const tiers: PricingTier[] = [
   {
     tier: "standard",
     name: "Standard",
-    price: 2500,
+    price: 2990,
     tagline: "A beautiful, interactive invite with every essential.",
-    features: ["Envelope opening", "Countdown & schedule", "Venue + map", "Background music", "Basic RSVP"],
+    features: ["Envelope opening", "Countdown & schedule", "Venue + map", "Nature sounds or nasheed", "Basic RSVP"],
   },
   {
     tier: "premium",
     name: "Premium",
-    price: 4500,
+    price: 3990,
     tagline: "Richer design, full RSVP and a Bangla/English toggle.",
     popular: true,
-    features: ["Everything in Standard", "Wax-seal opening", "Full RSVP + song request", "Add to Calendar", "Bangla / English"],
+    features: ["Everything in Standard", "Wax-seal opening", "Full RSVP", "Add to Calendar", "Bangla / English"],
   },
   {
     tier: "luxury",
     name: "Luxury",
-    price: 7500,
+    price: 4990,
     tagline: "The full cinematic experience for multi-day weddings.",
     features: ["Everything in Premium", "Cinematic intro", "Photo gallery", "Multi-event RSVP", "Our-story timeline"],
   },
@@ -41,7 +40,7 @@ export const comparison: { feature: string; values: Record<Tier, string | boolea
   { feature: "Interactive opening (envelope / seal)", values: { standard: true, premium: true, luxury: true } },
   { feature: "Countdown, schedule, venue + map", values: { standard: true, premium: true, luxury: true } },
   { feature: "Add to Calendar", values: { standard: true, premium: true, luxury: true } },
-  { feature: "Background music", values: { standard: true, premium: true, luxury: true } },
+  { feature: "Nature sounds or nasheed", values: { standard: true, premium: true, luxury: true } },
   { feature: "RSVP", values: { standard: "Basic", premium: true, luxury: "Multi-event" } },
   { feature: "Our-story timeline", values: { standard: true, premium: false, luxury: true } },
   { feature: "Photo gallery", values: { standard: false, premium: false, luxury: true } },

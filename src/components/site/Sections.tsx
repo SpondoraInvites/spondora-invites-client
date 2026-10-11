@@ -21,7 +21,7 @@ export function Hero() {
             <Button asChild size="lg"><a href="#invites">Explore invites</a></Button>
             <Button asChild size="lg" variant="outline"><a href="#pricing">See pricing</a></Button>
           </div>
-          <p className="mt-8 text-xs tracking-wide text-muted-foreground">Mobile-first · Your own link · Music, RSVP & maps · Made by our team</p>
+          <p className="mt-8 text-xs tracking-wide text-muted-foreground">Mobile-first · Your own link · Nature sounds, RSVP & maps · Made by our team</p>
         </div>
         <div className="relative mx-auto h-[560px] w-full max-w-sm animate-rise [animation-delay:200ms]">
           <img src={templates[3]?.cover} alt="" aria-hidden className="phone-frame absolute left-0 top-12 w-[58%] rotate-[-8deg] opacity-80" />
@@ -129,7 +129,7 @@ export function WhySpondora() {
   const points = [
     { icon: Heart, title: "Crafted by humans", body: "Every invite is personalised by our design team." },
     { icon: Smartphone, title: "Mobile-first", body: "Made for the phones your guests actually use." },
-    { icon: Link2, title: "All in one link", body: "Schedule, venue, music and RSVP — together." },
+    { icon: Link2, title: "All in one link", body: "Schedule, venue, sound and RSVP — together." },
     { icon: MapPin, title: "Local at heart", body: "বাংলা, Akd-aware and built around Bangladeshi venues." },
   ];
   return (

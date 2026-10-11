@@ -8,6 +8,7 @@ describe("WhatsApp ordering", () => {
     );
   });
   it("opens a chat with the business number", () => {
+    expect(site.whatsapp).toBe("8801353218337");
     expect(whatsappLink("hi")).toBe(`https://wa.me/${site.whatsapp}?text=hi`);
   });
 });
