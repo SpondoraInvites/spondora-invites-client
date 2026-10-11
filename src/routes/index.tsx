@@ -1,24 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { Hero, HowItWorks, Pricing, WhySpondora, Faq, Contact } from "@/components/site/Sections";
+import { Invites } from "@/components/site/Invites";
+import type { Tier } from "@/data/templates";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Spondora Invites — Digital Interactive Wedding Invitations" },
+      { name: "description", content: "Premium interactive wedding invitations for Bangladesh. Preview live designs, see pricing and order on WhatsApp." },
+      { property: "og:title", content: "Spondora Invites — Your wedding, beautifully invited." },
+      { property: "og:description", content: "Interactive wedding invites with music, RSVP, maps and countdown. One link, every detail." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [filter, setFilter] = useState<"all" | Tier>("all");
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <>
+      <Hero />
+      <Invites filter={filter} setFilter={setFilter} />
+      <HowItWorks />
+      <Pricing onSeeTier={(t) => { setFilter(t); document.getElementById("invites")?.scrollIntoView(); }} />
+      <WhySpondora />
+      <Faq />
+      <Contact />
+    </>
   );
 }
