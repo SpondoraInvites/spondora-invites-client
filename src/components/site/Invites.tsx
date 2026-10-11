@@ -57,11 +57,11 @@ export function Invites({ filter, setFilter }: { filter: "all" | Tier; setFilter
 
       <Dialog open={openIdx !== null} onOpenChange={(o) => !o && setOpenIdx(null)}>
         <DialogContent className="max-h-[95vh] w-[96vw] max-w-6xl overflow-y-auto bg-background p-4 sm:p-8">
-          {openIdx !== null && (
+          {openIdx !== null && templates[openIdx] && (
             <>
-              <DialogTitle className="sr-only">{templates[openIdx].name} preview</DialogTitle>
+              <DialogTitle className="sr-only">{templates[openIdx]!.name} preview</DialogTitle>
               <DialogDescription className="sr-only">Live interactive preview of the invitation.</DialogDescription>
-              <PreviewFrame template={templates[openIdx]} onPrev={() => move(-1)} onNext={() => move(1)} />
+              <PreviewFrame template={templates[openIdx]!} onPrev={() => move(-1)} onNext={() => move(1)} />
             </>
           )}
         </DialogContent>

@@ -28,7 +28,7 @@ function PreviewPage() {
   const { template } = Route.useLoaderData();
   const navigate = useNavigate();
   const idx = templates.indexOf(template);
-  const go = (d: number) => navigate({ to: "/preview/$slug", params: { slug: templates[(idx + d + templates.length) % templates.length].slug } });
+  const go = (d: number) => navigate({ to: "/preview/$slug", params: { slug: templates[(idx + d + templates.length) % templates.length]!.slug } });
   return (
     <main id="main" className="mx-auto max-w-6xl px-4 py-8">
       <Link to="/" hash="invites" className="mb-6 inline-flex items-center gap-2 text-sm text-primary hover:underline"><ArrowLeft className="h-4 w-4" /> All invites</Link>

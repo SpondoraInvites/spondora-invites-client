@@ -24,8 +24,8 @@ export function Hero() {
           <p className="mt-8 text-xs tracking-wide text-muted-foreground">Mobile-first · Your own link · Music, RSVP & maps · Made by our team</p>
         </div>
         <div className="relative mx-auto h-[560px] w-full max-w-sm animate-rise [animation-delay:200ms]">
-          <img src={templates[3].cover} alt="" aria-hidden className="phone-frame absolute left-0 top-12 w-[58%] rotate-[-8deg] opacity-80" />
-          <img src={templates[2].cover} alt="Wine Seal invitation on a phone" className="phone-frame absolute right-0 top-0 w-[64%] rotate-[4deg]" />
+          <img src={templates[3]?.cover} alt="" aria-hidden className="phone-frame absolute left-0 top-12 w-[58%] rotate-[-8deg] opacity-80" />
+          <img src={templates[2]?.cover} alt="Wine Seal invitation on a phone" className="phone-frame absolute right-0 top-0 w-[64%] rotate-[4deg]" />
         </div>
       </div>
       <div className="hairline mx-auto max-w-4xl" />
