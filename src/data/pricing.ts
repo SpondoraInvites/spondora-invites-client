@@ -42,7 +42,7 @@ export const comparison: { feature: string; values: Record<Tier, string | boolea
   { feature: "Add to Calendar", values: { standard: true, premium: true, luxury: true } },
   { feature: "Nature sounds or nasheed", values: { standard: true, premium: true, luxury: true } },
   { feature: "RSVP", values: { standard: "Basic", premium: true, luxury: "Multi-event" } },
-  { feature: "Our-story timeline", values: { standard: true, premium: false, luxury: true } },
+  { feature: "Our-story timeline", values: { standard: false, premium: false, luxury: true } },
   { feature: "Photo gallery", values: { standard: false, premium: false, luxury: true } },
   { feature: "Bangla / English toggle", values: { standard: false, premium: true, luxury: true } },
 ];
