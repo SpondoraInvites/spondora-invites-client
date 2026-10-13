@@ -74,6 +74,26 @@ export const templates: InviteTemplate[] = [
     languages: ["en"],
     sortOrder: 5,
   },
+  {
+    slug: "template4-premium",
+    name: "Maroon Monogram",
+    tier: "premium",
+    tags: ["maroon", "gold", "monogram"],
+    previewUrl: "https://spondora-template4-premium.vercel.app/",
+    cover: "/images/templates/template4-premium.jpg",
+    description:
+      "A deep maroon envelope and gold wax seal, for a faceless monogram couple and a two-day Nikah & Walima.",
+    features: [
+      "Tap-seal opening",
+      "Monogram couple",
+      "Order of the day",
+      "Countdown",
+      "Add to Calendar",
+      "EN / বাং",
+    ],
+    languages: ["en", "bn"],
+    sortOrder: 6,
+  },
 ].sort((a, b) => a.sortOrder - b.sortOrder) as InviteTemplate[];
 
 export const tierLabel: Record<Tier, string> = {
