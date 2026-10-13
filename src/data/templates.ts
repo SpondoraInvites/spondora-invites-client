@@ -113,6 +113,26 @@ export const templates: InviteTemplate[] = [
     languages: ["en", "bn"],
     sortOrder: 7,
   },
+  {
+    slug: "template1-standard",
+    name: "Rosewood Blush",
+    tier: "standard",
+    tags: ["rosewood", "wine", "rose gold"],
+    previewUrl: "https://spondora-template1-standard.vercel.app/",
+    cover: "/images/templates/template1-standard.jpg",
+    description:
+      "Romantic rosewood — blush paper, deep wine and rose gold — with a wax-sealed envelope intro and a photo gallery.",
+    features: [
+      "Envelope intro",
+      "Our story timeline",
+      "Photo gallery",
+      "RSVP",
+      "Background music",
+      "EN / বাং",
+    ],
+    languages: ["en", "bn"],
+    sortOrder: 8,
+  },
 ].sort((a, b) => a.sortOrder - b.sortOrder) as InviteTemplate[];
 
 export const tierLabel: Record<Tier, string> = {
