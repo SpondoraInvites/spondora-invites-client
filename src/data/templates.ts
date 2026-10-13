@@ -94,6 +94,25 @@ export const templates: InviteTemplate[] = [
     languages: ["en", "bn"],
     sortOrder: 6,
   },
+  {
+    slug: "template2-standard",
+    name: "Emerald Arch",
+    tier: "standard",
+    tags: ["emerald", "gold", "arch"],
+    previewUrl: "https://spondora-template2-standard.vercel.app/",
+    cover: "/images/templates/template2-standard.jpg",
+    description: "Emerald and gold with a Moorish arch hero, family welcome and one-tap share.",
+    features: [
+      "Wax-seal monogram",
+      "Family welcome",
+      "Countdown",
+      "Venue map",
+      "Add to Calendar",
+      "EN / বাং",
+    ],
+    languages: ["en", "bn"],
+    sortOrder: 7,
+  },
 ].sort((a, b) => a.sortOrder - b.sortOrder) as InviteTemplate[];
 
 export const tierLabel: Record<Tier, string> = {
