@@ -133,6 +133,26 @@ export const templates: InviteTemplate[] = [
     languages: ["en", "bn"],
     sortOrder: 8,
   },
+  {
+    slug: "template5-premium",
+    name: "Navy Blossom",
+    tier: "premium",
+    tags: ["navy", "ivory", "floral"],
+    previewUrl: "https://spondora-template5-premium.netlify.app/",
+    cover: "/images/templates/template5-premium.jpg",
+    description:
+      "Navy and ivory with a cinematic monogram opening, delicate florals and an English / বাংলা toggle.",
+    features: [
+      "Tap-to-open intro",
+      "Our story timeline",
+      "Photo gallery",
+      "Countdown",
+      "WhatsApp RSVP",
+      "EN / বাং",
+    ],
+    languages: ["en", "bn"],
+    sortOrder: 9,
+  },
 ].sort((a, b) => a.sortOrder - b.sortOrder) as InviteTemplate[];
 
 export const tierLabel: Record<Tier, string> = {
