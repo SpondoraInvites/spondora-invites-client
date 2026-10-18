@@ -14,3 +14,15 @@ it("lists template 5 as Premium with its live preview and cover", () => {
   expect(templates.filter((item) => item.slug === template?.slug)).toHaveLength(1);
   expect(existsSync(resolve("public", template!.cover.slice(1)))).toBe(true);
 });
+
+it("lists template 6 as Luxury with its live preview and cover", () => {
+  const template = getTemplate("template6-luxury");
+
+  expect(template).toMatchObject({
+    tier: "luxury",
+    previewUrl: "https://template-6-luxury.spondorainvites.com/",
+    languages: ["en"],
+  });
+  expect(templates.filter((item) => item.slug === template?.slug)).toHaveLength(1);
+  expect(existsSync(resolve("public", template!.cover.slice(1)))).toBe(true);
+});

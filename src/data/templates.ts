@@ -153,6 +153,26 @@ export const templates: InviteTemplate[] = [
     languages: ["en", "bn"],
     sortOrder: 9,
   },
+  {
+    slug: "template6-luxury",
+    name: "Plum Night & Rose Gold",
+    tier: "luxury",
+    tags: ["plum", "rose gold", "art deco"],
+    previewUrl: "https://template-6-luxury.spondorainvites.com/",
+    cover: "/images/templates/template6-luxury.jpg",
+    description:
+      "Deep plum velvet and rose-gold art deco — a cinematic tap-to-open cover over a pearl, blush-tinted site with scroll choreography throughout.",
+    features: [
+      "Cinematic cover reveal",
+      "Our story timeline",
+      "Countdown",
+      "Photo gallery",
+      "WhatsApp RSVP",
+      "Background music",
+    ],
+    languages: ["en"],
+    sortOrder: 10,
+  },
 ].sort((a, b) => a.sortOrder - b.sortOrder) as InviteTemplate[];
 
 export const tierLabel: Record<Tier, string> = {
