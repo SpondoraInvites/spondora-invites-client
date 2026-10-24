@@ -31,7 +31,7 @@ export const templates: InviteTemplate[] = [
     name: "Ivory Garden",
     tier: "luxury",
     tags: ["ivory", "garden", "light"],
-    previewUrl: "https://spondora-template2-luxury.netlify.app/",
+    previewUrl: "https://template2-luxury.pages.dev/",
     cover: "/images/templates/template2-luxury.jpg",
     description: "Soft ivory and a garden canopy, with an English / বাংলা toggle.",
     features: ["Bismillah intro", "Our story", "Gallery", "Venue map", "EN / বাং"],
