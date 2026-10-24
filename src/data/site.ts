@@ -3,7 +3,7 @@ export const site = {
   tagline: "Your wedding, beautifully invited.",
   secondary: "More than an invitation. A wedding experience.",
   whatsapp: "8801353218337",
-  email: "hello@spondora.com",
+  email: "hello@spondorainvites.com",
   instagram: "https://www.instagram.com/spondora_invites/",
   facebook: "https://www.facebook.com/profile.php?id=61594435060189",
 };
