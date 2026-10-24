@@ -67,7 +67,7 @@ export const templates: InviteTemplate[] = [
     name: "Terracotta Botanical",
     tier: "standard",
     tags: ["cream", "floral", "envelope"],
-    previewUrl: "https://spondora-template3-standard.netlify.app/",
+    previewUrl: "https://template3-standard.pages.dev/",
     cover: "/images/templates/template3-standard.jpg",
     description: "Cream paper, terracotta botanicals and falling petals.",
     features: ["Sealed-envelope reveal", "Nature sounds", "Story timeline", "Countdown", "RSVP"],
