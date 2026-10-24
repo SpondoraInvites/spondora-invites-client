@@ -43,7 +43,7 @@ export const templates: InviteTemplate[] = [
     name: "Wine Seal",
     tier: "premium",
     tags: ["wine", "wax seal", "envelope"],
-    previewUrl: "https://template1-standard.pages.dev/",
+    previewUrl: "https://template2-premium.pages.dev/",
     cover: "/images/templates/template2-premium.jpg",
     description: "A deep wine envelope that opens with a tap of the wax seal.",
     features: ["Tap-seal opening", "Countdown", "Venue map", "Add to Calendar", "EN / বাং"],
