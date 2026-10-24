@@ -55,7 +55,7 @@ export const templates: InviteTemplate[] = [
     name: "Burgundy Heirloom",
     tier: "premium",
     tags: ["burgundy", "formal", "classic"],
-    previewUrl: "https://spondora-template-3-premium.netlify.app/",
+    previewUrl: "https://template3-premium.pages.dev/",
     cover: "/images/templates/template-3-premium.jpg",
     description: "Formal burgundy with bride & groom profiles and an evening programme.",
     features: ["Couple profiles", "Order of the evening", "Countdown", "RSVP"],
@@ -79,7 +79,7 @@ export const templates: InviteTemplate[] = [
     name: "Maroon Monogram",
     tier: "premium",
     tags: ["maroon", "gold", "monogram"],
-    previewUrl: "https://spondora-template4-premium.vercel.app/",
+    previewUrl: "https://template4-premium.pages.dev/",
     cover: "/images/templates/template4-premium.jpg",
     description:
       "A deep maroon envelope and gold wax seal, for a faceless monogram couple and a two-day Nikah & Walima.",
