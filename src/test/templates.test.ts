@@ -8,7 +8,7 @@ it("lists template 5 as Premium with its live preview and cover", () => {
 
   expect(template).toMatchObject({
     tier: "premium",
-    previewUrl: "https://spondora-template5-premium.netlify.app/",
+    previewUrl: "https://template5-premium.pages.dev/",
     languages: ["en", "bn"],
   });
   expect(templates.filter((item) => item.slug === template?.slug)).toHaveLength(1);

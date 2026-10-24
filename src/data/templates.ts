@@ -118,7 +118,7 @@ export const templates: InviteTemplate[] = [
     name: "Rosewood Blush",
     tier: "standard",
     tags: ["rosewood", "wine", "rose gold"],
-    previewUrl: "https://spondora-template1-standard.vercel.app/",
+    previewUrl: "https://template1-standard.pages.dev/",
     cover: "/images/templates/template1-standard.jpg",
     description:
       "Romantic rosewood — blush paper, deep wine and rose gold — with a wax-sealed envelope intro and a photo gallery.",
@@ -138,7 +138,7 @@ export const templates: InviteTemplate[] = [
     name: "Navy Blossom",
     tier: "premium",
     tags: ["navy", "ivory", "floral"],
-    previewUrl: "https://spondora-template5-premium.netlify.app/",
+    previewUrl: "https://template5-premium.pages.dev/",
     cover: "/images/templates/template5-premium.jpg",
     description:
       "Navy and ivory with a cinematic monogram opening, delicate florals and an English / বাংলা toggle.",
