@@ -19,7 +19,7 @@ export const templates: InviteTemplate[] = [
     name: "Noir & Gold",
     tier: "luxury",
     tags: ["dark", "gold", "cinematic"],
-    previewUrl: "https://spondora-template1-luxury.netlify.app/",
+    previewUrl: "https://template1-luxury.pages.dev/",
     cover: "/images/templates/template1-luxury.jpg",
     description: "Near-black and gold, cinematic from the very first frame.",
     features: ["Bismillah intro", "Our story", "Multi-evening events", "Gallery", "Multi-event RSVP"],
