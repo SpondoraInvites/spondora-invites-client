@@ -11,11 +11,11 @@ const nav = [
   { href: "/#faq", label: "FAQ" },
 ];
 
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({ light = false, className = "" }: { light?: boolean; className?: string }) {
   return (
-    <Link to="/" className="flex items-center" aria-label="Spondora Invites home">
+    <Link to="/" className={`flex items-center ${light ? "justify-center md:justify-start" : ""} ${className}`} aria-label="Spondora Invites home">
       <img
-        src="/logo-lockup.png"
+        src={light ? "/logo-lockup-light.png" : "/logo-lockup.png"}
         alt="Spondora Invites"
         width={158}
         height={103}
@@ -58,17 +58,17 @@ export function Footer() {
   return (
     <footer className="section-dark">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-3">
-        <div>
+        <div className="text-center md:text-left">
           <Logo light />
           <p className="mt-4 font-display italic text-gold">{site.tagline}</p>
         </div>
-        <nav className="grid grid-cols-2 gap-2 text-sm text-ivory/80" aria-label="Footer">
+        <nav className="grid grid-cols-2 gap-2 justify-items-center text-sm text-ivory/80 md:justify-items-start" aria-label="Footer">
           {nav.map((n) => <a key={n.href} href={n.href} className="hover:text-gold">{n.label}</a>)}
           <Link to="/terms" className="hover:text-gold">Terms</Link>
           <Link to="/privacy" className="hover:text-gold">Privacy</Link>
           <Link to="/refund-policy" className="hover:text-gold">Refund policy</Link>
         </nav>
-        <div className="flex items-start gap-3 md:justify-end">
+        <div className="flex items-start justify-center gap-3 md:justify-end">
           <a href={site.instagram} aria-label="Instagram" className="rounded-full border border-gold/40 p-2.5 text-gold hover:bg-gold hover:text-primary"><Instagram className="h-4 w-4" /></a>
           <a href={site.facebook} aria-label="Facebook" className="rounded-full border border-gold/40 p-2.5 text-gold hover:bg-gold hover:text-primary"><Facebook className="h-4 w-4" /></a>
           <a href={`mailto:${site.email}`} aria-label="Email" className="rounded-full border border-gold/40 p-2.5 text-gold hover:bg-gold hover:text-primary"><Mail className="h-4 w-4" /></a>
