@@ -19,7 +19,7 @@ export const templates: InviteTemplate[] = [
     name: "Noir & Gold",
     tier: "luxury",
     tags: ["dark", "gold", "cinematic"],
-    previewUrl: "https://template1-luxury.pages.dev/",
+    previewUrl: "https://template1-luxury.spondorainvites.com/",
     cover: "/images/templates/template1-luxury.jpg",
     description: "Near-black and gold, cinematic from the very first frame.",
     features: ["Bismillah intro", "Our story", "Multi-evening events", "Gallery", "Multi-event RSVP"],
@@ -158,7 +158,7 @@ export const templates: InviteTemplate[] = [
     name: "Plum Night & Rose Gold",
     tier: "luxury",
     tags: ["plum", "rose gold", "art deco"],
-    previewUrl: "https://template-6-luxury.spondorainvites.com/",
+    previewUrl: "https://template6-luxury.spondorainvites.com/",
     cover: "/images/templates/template6-luxury.jpg",
     description:
       "Deep plum velvet and rose-gold art deco — a cinematic tap-to-open cover over a pearl, blush-tinted site with scroll choreography throughout.",
