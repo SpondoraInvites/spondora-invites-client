@@ -99,7 +99,7 @@ export const templates: InviteTemplate[] = [
     name: "Emerald Arch",
     tier: "standard",
     tags: ["emerald", "gold", "arch"],
-    previewUrl: "https://spondora-template2-standard.vercel.app/",
+    previewUrl: "https://template2-standard.spondorainvites.com/",
     cover: "/images/templates/template2-standard.jpg",
     description: "Emerald and gold with a Moorish arch hero, family welcome and one-tap share.",
     features: [
