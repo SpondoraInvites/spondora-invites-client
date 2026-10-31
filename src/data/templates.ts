@@ -118,7 +118,7 @@ export const templates: InviteTemplate[] = [
     name: "Rosewood Blush",
     tier: "standard",
     tags: ["rosewood", "wine", "rose gold"],
-    previewUrl: "https://template1-standard.pages.dev/",
+    previewUrl: "https://template1-standard.spondorainvites.com/",
     cover: "/images/templates/template1-standard.jpg",
     description:
       "Romantic rosewood — blush paper, deep wine and rose gold — with a wax-sealed envelope intro and a photo gallery.",
