@@ -61,21 +61,33 @@ const MANIFEST_KEYS = [
 const MANIFEST_TIERS = new Set(["standard", "premium", "luxury"]);
 const MANIFEST_STYLES = new Set(["classic", "module"]);
 
-/** Byte-identical copy of WT-2 §4. Any drift in a template is reported. */
-const HOOK = `/* ── Invite platform hook — identical in every template ────────────────────
-   Publish:  the platform writes window.__INVITE_CONFIG__ before this file runs.
-   Preview:  the editor passes #cfg=<url-encoded json>.
-   Editing config.js by hand still works; this only overrides what it is given. */
-(function (target) {
-  if (!target || typeof window === "undefined") return;
+/** Byte-identical copy of WT-24 §3. Any drift in a template is reported. */
+const HOOK = `/* ── Invite platform hook v2 — identical in every template ─────────────────
+   Publish:  the platform writes window.__INVITE_CONFIG__ and
+             window.__INVITE_TRANSLATIONS__ before this file runs.
+   Preview:  the editor passes #cfg=<url-encoded {config, translations}>.
+   Editing config.js by hand still works; this only replaces what it is given. */
+(function (target, translations) {
+  if (typeof window === "undefined") return;
   var patch = window.__INVITE_CONFIG__;
+  var tr = window.__INVITE_TRANSLATIONS__;
   if (!patch) {
     var m = /#cfg=(.*)$/.exec(location.hash);
-    try { patch = m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { patch = null; }
+    try {
+      var payload = m ? JSON.parse(decodeURIComponent(m[1])) : null;
+      if (payload) { patch = payload.config; tr = payload.translations; }
+    } catch (e) { patch = null; }
   }
-  if (patch) Object.keys(patch).forEach(function (k) { target[k] = patch[k]; });
+  function replace(dst, src) {
+    if (!dst || !src) return;
+    Object.keys(dst).forEach(function (k) { delete dst[k]; });
+    Object.keys(src).forEach(function (k) { dst[k] = src[k]; });
+  }
+  replace(target, patch);
+  replace(translations, tr);
 })(typeof INVITE_CONFIG !== "undefined" ? INVITE_CONFIG :
-   typeof config !== "undefined" ? config : null);`;
+   typeof config !== "undefined" ? config : null,
+   typeof INVITE_TRANSLATIONS !== "undefined" ? INVITE_TRANSLATIONS : null);`;
 
 const labelWidth = 24;
 
@@ -87,10 +99,13 @@ function readJson(path) {
   }
 }
 
-/** Canonical config object from whichever export shape the template uses. */
-async function loadConfig(configPath) {
+/** Canonical config + translations from whichever export shape the template uses. */
+async function loadTemplate(configPath) {
   const mod = await import(pathToFileURL(configPath).href);
-  return mod.INVITE_CONFIG ?? mod.config ?? mod.default;
+  return {
+    config: mod.INVITE_CONFIG ?? mod.config ?? mod.default,
+    translations: mod.INVITE_TRANSLATIONS ?? null,
+  };
 }
 
 function hookState(src) {
@@ -116,6 +131,12 @@ function manifestProblems(manifest) {
     problems.push("languages must be a non-empty array");
   }
   return problems;
+}
+
+/** Informational only: strings in index.html that came from the config's couple names. */
+function pageUsesI18n(repoDir) {
+  const htmlPath = join(repoDir, "index.html");
+  return existsSync(htmlPath) && readFileSync(htmlPath, "utf8").includes("data-i18n");
 }
 
 /** Informational only: strings in index.html that came from the config's couple names. */
@@ -175,9 +196,10 @@ async function inspect(dir) {
 
   // 7. Node-load sanity
   let config = null;
+  let translations = null;
   if (configPath) {
     try {
-      config = await loadConfig(configPath);
+      ({ config, translations } = await loadTemplate(configPath));
       if (typeof config !== "object" || config === null) {
         failures.push("config.js did not export an object");
         row("load", "did not export an object");
@@ -207,6 +229,42 @@ async function inspect(dir) {
     if (Number.isNaN(Date.parse(config.weddingDateTime))) {
       failures.push("weddingDateTime does not parse");
       row("weddingDateTime", "missing or not a date");
+    }
+
+    // 5. calendar times are HH:MM (ISO here breaks the calendar link)
+    const badTimes = [];
+    const events = Array.isArray(config.events) ? config.events : [];
+    for (const [i, event] of events.entries()) {
+      for (const key of ["calStart", "calEnd"]) {
+        const value = event?.[key];
+        if (value !== undefined && !/^[0-2][0-9]:[0-5][0-9]$/.test(value)) {
+          badTimes.push(`events[${i}].${key} "${value}"`);
+        }
+      }
+    }
+    if (badTimes.length > 0) {
+      failures.push("event times are not HH:MM");
+      row("event times", `${badTimes.join(", ")} (must be HH:MM, 24-hour)`);
+    }
+  }
+
+  // 4b. translations shape — only templates that ship INVITE_TRANSLATIONS
+  if (translations) {
+    const bn = translations.bn;
+    if (typeof bn !== "object" || bn === null) {
+      failures.push("INVITE_TRANSLATIONS has no bn object");
+      row("translations.bn", "missing");
+    } else {
+      const dotted = Object.keys(bn).filter((key) => key !== "ui" && key.includes("."));
+      if (dotted.length > 0) {
+        failures.push("flat translation keys outside ui");
+        row("translations.bn keys", `${dotted.join(", ")} (must be nested; ui is exempt)`);
+      }
+      const ui = bn.ui;
+      if (pageUsesI18n(repoDir) && (typeof ui !== "object" || ui === null)) {
+        failures.push("translations.bn.ui missing");
+        row("translations.bn.ui", "page uses data-i18n — add a ui block");
+      }
     }
   }
 
