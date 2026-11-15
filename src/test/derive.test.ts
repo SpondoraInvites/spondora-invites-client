@@ -1,17 +1,181 @@
-import { it } from "vitest";
+import { describe, expect, it } from "vitest";
+import {
+  deriveCity,
+  deriveDateTime,
+  deriveHashtag,
+  deriveInitials,
+  deriveRsvpDeadline,
+  isoToLocal,
+} from "@/lib/derive";
 
-// WT-23 §3 is the contract; the implementations and real assertions are WT-25.
-// These are the expectations WT-25 has to satisfy, listed here so the contract
-// does not get lost between tickets.
+// WT-23 §3 is the contract. Every expectation below is quoted from it.
+const dhaka = { timeZone: "Asia/Dhaka", offset: "+06:00" };
 
-it.todo("deriveDateTime: builds ISO with the template offset, not UTC");
-it.todo("deriveDateTime: keeps a negative offset (America/New_York, -05:00)");
-it.todo("deriveDateTime: the offset passed in wins, even across DST");
-it.todo("deriveDateTime: en date says February, bn date uses Bengali numerals and month");
-it.todo("deriveDateTime: calDate/calStart/calEnd are YYYY-MM-DD and HH:MM");
-it.todo("isoToLocal round-trips a deriveDateTime offset");
-it.todo("dateDisplay follows the main event, never a range across events");
-it.todo("deriveRsvpDeadline: both display strings, no weekday, end of day at 23:59");
-it.todo("deriveInitials: keeps the template's separator, blank name returns empty");
-it.todo("deriveHashtag: #PascalCaseAndPascalCase, letters and digits only");
-it.todo("deriveCity: last comma segment without the postcode, Bangla addresses too");
+describe("deriveDateTime", () => {
+  it("builds ISO with the template offset, not UTC", () => {
+    const d = deriveDateTime("2027-02-12T18:00", dhaka);
+    expect(d.iso).toBe("2027-02-12T18:00:00+06:00");
+    expect(d.iso.endsWith("+06:00")).toBe(true);
+    expect(d.calDate).toBe("2027-02-12");
+    expect(d.calStart).toBe("18:00");
+    expect(d.calEnd).toBe("21:00");
+    expect(d.timeEn).toBe("6:00 PM");
+    expect(d.timeBn).toBe("সন্ধ্যা ৬:০০");
+  });
+
+  it("keeps a negative offset (America/New_York, -05:00)", () => {
+    const d = deriveDateTime("2027-02-12T18:00", {
+      timeZone: "America/New_York",
+      offset: "-05:00",
+    });
+    expect(d.iso).toBe("2027-02-12T18:00:00-05:00");
+    expect(d.calStart).toBe("18:00");
+    expect(d.timeEn).toBe("6:00 PM");
+  });
+
+  it("lets the offset passed in win, even across a DST boundary", () => {
+    // US DST starts 14 March 2027: -05:00 before, -04:00 after. The function
+    // must not recalculate either from the zone name.
+    const winter = deriveDateTime("2027-03-13T18:00", {
+      timeZone: "America/New_York",
+      offset: "-05:00",
+    });
+    const summer = deriveDateTime("2027-03-15T18:00", {
+      timeZone: "America/New_York",
+      offset: "-04:00",
+    });
+    expect(winter.iso).toBe("2027-03-13T18:00:00-05:00");
+    expect(summer.iso).toBe("2027-03-15T18:00:00-04:00");
+    expect(winter.calStart).toBe("18:00");
+    expect(summer.calStart).toBe("18:00");
+    expect(winter.timeEn).toBe("6:00 PM");
+    expect(summer.timeEn).toBe("6:00 PM");
+  });
+
+  it("renders February in English and Bengali numerals plus month in Bangla", () => {
+    const d = deriveDateTime("2027-02-12T18:00", dhaka);
+    expect(d.dateEn).toBe("Friday, 12 February 2027");
+    expect(d.dateBn).toContain("১২");
+    expect(d.dateBn).toContain("ফেব্রুয়ারি");
+    expect(d.dateBn).toContain("শুক্রবার");
+  });
+
+  it("keeps an existing calEnd when it is still after the start", () => {
+    const d = deriveDateTime("2027-02-12T18:00", { ...dhaka, previousCalEnd: "22:30" });
+    expect(d.calEnd).toBe("22:30");
+  });
+
+  it("ignores an existing calEnd that no longer fits and clamps past midnight", () => {
+    expect(deriveDateTime("2027-02-12T18:00", { ...dhaka, previousCalEnd: "17:00" }).calEnd).toBe(
+      "21:00",
+    );
+    // 22:00 + 3 h would be the next day; the calendar link stays single-day.
+    expect(deriveDateTime("2027-02-12T22:00", dhaka).calEnd).toBe("23:59");
+  });
+
+  it("maps the hour to the Bangla part of day", () => {
+    const timeBn = (local: string) => deriveDateTime(local, dhaka).timeBn;
+    expect(timeBn("2027-02-12T09:00")).toBe("সকাল ৯:০০");
+    expect(timeBn("2027-02-12T13:00")).toBe("দুপুর ১:০০");
+    expect(timeBn("2027-02-12T17:00")).toBe("বিকেল ৫:০০");
+    expect(timeBn("2027-02-12T19:00")).toBe("সন্ধ্যা ৭:০০");
+    expect(timeBn("2027-02-12T23:00")).toBe("রাত ১১:০০");
+  });
+
+  it("round-trips back into the datetime-local input", () => {
+    for (const local of ["2027-02-12T18:00", "2027-12-31T23:59", "2027-01-01T00:00"]) {
+      expect(isoToLocal(deriveDateTime(local, dhaka).iso)).toBe(local);
+    }
+  });
+
+  it("keeps dateDisplay on the main event, never a range across events", () => {
+    // template1-standard ships these three events; the hero still shows one date.
+    const first = "2027-02-11T18:30";
+    const main = "2027-02-12T18:00"; // the event behind weddingDateTime
+    const last = "2027-02-13T19:00";
+    expect(deriveDateTime(main, dhaka).dateEn).toBe("Friday, 12 February 2027");
+    // Each event carries its own date, so 11 and 13 February are their own strings.
+    expect(deriveDateTime(first, dhaka).dateEn).toBe("Thursday, 11 February 2027");
+    expect(deriveDateTime(last, dhaka).dateEn).toBe("Saturday, 13 February 2027");
+  });
+});
+
+describe("deriveRsvpDeadline", () => {
+  it("gives both display strings with no weekday and a 23:59 end of day", () => {
+    const d = deriveRsvpDeadline("2027-01-25", dhaka);
+    expect(d.deadlineEn).toBe("25 January 2027");
+    expect(d.deadlineBn).toContain("২৫");
+    expect(d.deadlineBn).toContain("জানুয়ারি");
+    expect(d.deadlineBn).not.toContain("সোমবার");
+    expect(d.endOfDay).toBe("2027-01-25T23:59:00+06:00");
+  });
+
+  it("cannot slip a day on a late-evening pick", () => {
+    expect(deriveRsvpDeadline("2027-01-25", dhaka).deadlineEn).toBe("25 January 2027");
+    expect(
+      deriveRsvpDeadline("2027-01-25", { timeZone: "America/New_York", offset: "-05:00" })
+        .deadlineEn,
+    ).toBe("25 January 2027");
+  });
+});
+
+describe("deriveInitials", () => {
+  it("uses the template's separator", () => {
+    expect(deriveInitials("Sumaiya Karim", "Zayan Ahmed", "S&Z")).toBe("S&Z");
+    expect(deriveInitials("Sumaiya Karim", "Zayan Ahmed", "A · I")).toBe("S · Z");
+  });
+
+  it("falls back to & and returns empty for a blank name", () => {
+    expect(deriveInitials("Sumaiya Karim", "Zayan Ahmed", "")).toBe("S&Z");
+    expect(deriveInitials("Sumaiya Karim", "Zayan Ahmed", "SZ")).toBe("S&Z");
+    expect(deriveInitials("Sumaiya Karim", "Zayan Ahmed", "Sumaiya & Zayan")).toBe("S&Z");
+    expect(deriveInitials("", "Zayan Ahmed", "S&Z")).toBe("");
+    expect(deriveInitials("Sumaiya Karim", "   ", "S&Z")).toBe("");
+  });
+
+  it("takes the first letter after leading punctuation", () => {
+    expect(deriveInitials("Md. Rafi", "Zayan Ahmed", "S&Z")).toBe("M&Z");
+    expect(deriveInitials("'Ashik", "Zayan", "S&Z")).toBe("A&Z");
+  });
+});
+
+describe("deriveHashtag", () => {
+  it("joins the PascalCase first words with And", () => {
+    expect(deriveHashtag("Sumaiya Karim", "Zayan Ahmed")).toBe("#SumaiyaAndZayan");
+  });
+
+  it("drops accents and punctuation, normalises the casing", () => {
+    // Capitalise the first letter and lowercase the rest: Zoë-Anne → Zoeanne.
+    expect(deriveHashtag("Zoë-Anne Karim", "Zayan Ahmed")).toBe("#ZoeanneAndZayan");
+    expect(deriveHashtag("Md. Rafi", "Z. Ahmed")).toBe("#MdAndZ");
+    expect(deriveHashtag("SUMAIYA", "zayan")).toBe("#SumaiyaAndZayan");
+  });
+
+  it("returns empty when a name is empty", () => {
+    expect(deriveHashtag("", "Zayan Ahmed")).toBe("");
+    expect(deriveHashtag("Sumaiya Karim", "  ")).toBe("");
+  });
+});
+
+describe("deriveCity", () => {
+  it("keeps the last segment without the postcode", () => {
+    expect(deriveCity("House 12, Road 55, Gulshan 2, Dhaka 1212")).toBe("Dhaka");
+    expect(deriveCity("House 12, Road 55, Dhaka-1212")).toBe("Dhaka");
+  });
+
+  it("drops a trailing country", () => {
+    expect(deriveCity("House 12, Road 55, Dhaka 1212, Bangladesh")).toBe("Dhaka");
+    expect(deriveCity("12 Baker Street, London NW1, United Kingdom")).toBe("London");
+  });
+
+  it("works for Bangla addresses", () => {
+    expect(deriveCity("বাড়ি ১২, রোড ৫৫, গুলশান ২, ঢাকা ১২১২")).toBe("ঢাকা");
+    expect(deriveCity("বাড়ি ১২, রোড ৫৫, ঢাকা ১২১২, বাংলাদেশ")).toBe("ঢাকা");
+  });
+
+  it("returns empty when there is no city to take", () => {
+    expect(deriveCity("Dhaka")).toBe("");
+    expect(deriveCity("")).toBe("");
+    expect(deriveCity(", ,")).toBe("");
+  });
+});
