@@ -108,6 +108,241 @@
       "parents2": "Son of Mr. Kamal Karim & Mrs. Shirin Karim"
     }
   },
+  "fields": [
+    {
+      "bilingual": true,
+      "id": "partner1Name",
+      "label": "Partner 1 name",
+      "path": [
+        "couple",
+        "name1"
+      ],
+      "required": true,
+      "section": "Couple",
+      "type": "text"
+    },
+    {
+      "bilingual": true,
+      "id": "partner2Name",
+      "label": "Partner 2 name",
+      "path": [
+        "couple",
+        "name2"
+      ],
+      "required": true,
+      "section": "Couple",
+      "type": "text"
+    },
+    {
+      "bilingual": true,
+      "id": "familyLine1",
+      "label": "Bride's family line",
+      "path": [
+        "welcome",
+        "parents1"
+      ],
+      "required": true,
+      "section": "Family",
+      "type": "text"
+    },
+    {
+      "bilingual": true,
+      "id": "familyLine2",
+      "label": "Groom's family line",
+      "path": [
+        "welcome",
+        "parents2"
+      ],
+      "required": true,
+      "section": "Family",
+      "type": "text"
+    },
+    {
+      "bilingual": true,
+      "id": "venueName",
+      "label": "Venue name",
+      "path": [
+        "venue",
+        "name"
+      ],
+      "required": true,
+      "section": "Where",
+      "type": "text"
+    },
+    {
+      "bilingual": true,
+      "id": "venueAddress",
+      "label": "Address",
+      "path": [
+        "venue",
+        "address"
+      ],
+      "required": true,
+      "section": "Where",
+      "type": "textarea"
+    },
+    {
+      "bilingual": false,
+      "id": "eventDateTime",
+      "label": "Wedding date & time",
+      "path": [
+        "weddingDateTime"
+      ],
+      "required": true,
+      "section": "When",
+      "type": "datetime"
+    },
+    {
+      "bilingual": false,
+      "hint": "Paste the venue name exactly as Google Maps knows it, or coordinates.",
+      "id": "venueMapQuery",
+      "label": "Google Maps search",
+      "path": [
+        "venue",
+        "mapQuery"
+      ],
+      "required": true,
+      "section": "Where",
+      "type": "text"
+    },
+    {
+      "bilingual": false,
+      "hint": "Include the country code, e.g. 8801353218337.",
+      "id": "rsvpWhatsapp",
+      "label": "WhatsApp number",
+      "path": [
+        "rsvp",
+        "whatsapp"
+      ],
+      "required": true,
+      "section": "RSVP",
+      "type": "tel"
+    },
+    {
+      "bilingual": false,
+      "hint": "The whole day counts; replies close at midnight.",
+      "id": "rsvpDeadline",
+      "label": "Reply by",
+      "path": [
+        "rsvp",
+        "deadline"
+      ],
+      "required": true,
+      "section": "RSVP",
+      "type": "date"
+    },
+    {
+      "bilingual": false,
+      "derived": "initials",
+      "id": "monogramInitials",
+      "label": "Monogram letters",
+      "path": [
+        "couple",
+        "initials"
+      ],
+      "required": false,
+      "section": "Couple",
+      "type": "text"
+    },
+    {
+      "bilingual": false,
+      "derived": "hashtag",
+      "id": "hashtag",
+      "label": "Hashtag",
+      "path": [
+        "couple",
+        "hashtag"
+      ],
+      "required": false,
+      "section": "Couple",
+      "type": "text"
+    },
+    {
+      "bilingual": false,
+      "id": "localizationEnabled",
+      "label": "Publish the Bangla version",
+      "path": [
+        "localization",
+        "enabled"
+      ],
+      "required": false,
+      "section": "Language",
+      "type": "toggle"
+    },
+    {
+      "bilingual": true,
+      "id": "events",
+      "itemFields": [
+        {
+          "bilingual": true,
+          "id": "tag",
+          "label": "Tag",
+          "path": [
+            "tag"
+          ],
+          "required": true,
+          "type": "text"
+        },
+        {
+          "bilingual": true,
+          "id": "name",
+          "label": "Event name",
+          "path": [
+            "name"
+          ],
+          "required": true,
+          "type": "text"
+        },
+        {
+          "id": "dateTime",
+          "inherits": true,
+          "label": "Date & time",
+          "path": [
+            "calStart"
+          ],
+          "type": "datetime"
+        },
+        {
+          "bilingual": true,
+          "id": "venueName",
+          "inherits": true,
+          "label": "Venue",
+          "path": [
+            "venue"
+          ],
+          "type": "text"
+        },
+        {
+          "bilingual": true,
+          "id": "venueAddress",
+          "inherits": true,
+          "label": "Address",
+          "path": [
+            "address"
+          ],
+          "type": "textarea"
+        },
+        {
+          "id": "mapQuery",
+          "inherits": true,
+          "label": "Google Maps search",
+          "path": [
+            "mapQuery"
+          ],
+          "type": "text"
+        }
+      ],
+      "itemLabel": "Event",
+      "label": "Events",
+      "max": 4,
+      "min": 1,
+      "path": [
+        "events"
+      ],
+      "section": "Events",
+      "type": "group"
+    }
+  ],
   "manifest": {
     "copyRendered": true,
     "directory": "template5-premium",

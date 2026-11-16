@@ -10,7 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { CANONICAL_FIELDS } from "@/lib/canonical-fields";
 import { deriveDateTime, deriveInitials, isoToLocal } from "@/lib/derive";
-import { resolveConfig, templateSnapshots, type TemplateSnapshot } from "@/lib/fields";
+import { resolveConfig, type TemplateSnapshot } from "@/lib/fields";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
 import { templateOrigin } from "@/lib/template-origins";
 
 export const Route = createFileRoute("/create/$templateSlug")({
@@ -88,7 +89,7 @@ function hashFor(snapshot: TemplateSnapshot, values: Record<string, string>) {
 
 function CreatePage() {
   const { templateSlug } = Route.useParams();
-  const snapshot = templateSnapshots[templateSlug];
+  const snapshot = TEMPLATE_SNAPSHOTS[templateSlug];
   if (!snapshot) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-24">

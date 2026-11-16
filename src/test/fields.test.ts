@@ -18,6 +18,7 @@ const snapshot: TemplateSnapshot = {
     venue: { name: "Lakeshore Grand Ballroom" },
   },
   translations: { bn: {} },
+  fields: [],
 };
 
 const fields = [
@@ -51,5 +52,11 @@ describe("resolveConfig", () => {
       couple: { name1: "Ayesha Rahman", name2: "Imran Karim", initials: "A · I" },
       venue: { name: "Lakeshore Grand Ballroom" },
     });
+  });
+
+  it("round-trips through structuredClone", () => {
+    const config = resolveConfig(snapshot, fields, { partner1Name: "Rima" });
+
+    expect(structuredClone(config)).toEqual(config);
   });
 });

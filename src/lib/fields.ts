@@ -1,9 +1,10 @@
 /**
- * Template snapshots and the resolver that writes form values into them (WT-13).
+ * Template snapshots and the resolver that writes form values into them (WT-16).
  *
  * A snapshot is what `scripts/sync-templates.mjs` writes: the template's manifest, the
  * full `INVITE_CONFIG` (so a shallow assign can never drop a key the form does not
- * mention) and its `INVITE_TRANSLATIONS` by locale.
+ * mention), its `INVITE_TRANSLATIONS` by locale, and the form fields derived from the
+ * paths this template actually has. The generated data itself lives in `src/data/templates/`.
  */
 import type { Field } from "@/lib/canonical-fields";
 
@@ -20,6 +21,7 @@ export interface TemplateSnapshot {
   };
   defaults: Record<string, unknown>;
   translations: Record<string, Record<string, unknown>>;
+  fields: Field[];
 }
 
 /**
@@ -51,13 +53,3 @@ export function resolveConfig(
   }
   return config;
 }
-
-const modules = import.meta.glob<TemplateSnapshot>("../data/templates/*.json", {
-  eager: true,
-  import: "default",
-});
-
-/** Every synced template, keyed by slug. */
-export const templateSnapshots: Record<string, TemplateSnapshot> = Object.fromEntries(
-  Object.values(modules).map((snapshot) => [snapshot.manifest.slug, snapshot]),
-);
