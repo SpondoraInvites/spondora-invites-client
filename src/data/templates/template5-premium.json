@@ -194,7 +194,7 @@
     },
     {
       "bilingual": false,
-      "hint": "Paste the venue name exactly as Google Maps knows it, or coordinates.",
+      "hint": "Paste the venue name exactly as Google Maps knows it, coordinates, or a Plus Code.",
       "id": "venueMapQuery",
       "label": "Google Maps search",
       "path": [
@@ -234,6 +234,7 @@
     {
       "bilingual": false,
       "derived": "initials",
+      "hint": "Used on the wax seal — 2–3 letters work best, e.g. S&Z",
       "id": "monogramInitials",
       "label": "Monogram letters",
       "path": [
@@ -247,6 +248,7 @@
     {
       "bilingual": false,
       "derived": "hashtag",
+      "hint": "We add the # for you — type the words only, e.g. SumaiyaAndZayan",
       "id": "hashtag",
       "label": "Hashtag",
       "path": [

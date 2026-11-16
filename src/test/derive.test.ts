@@ -137,6 +137,12 @@ describe("deriveInitials", () => {
     expect(deriveInitials("Md. Rafi", "Zayan Ahmed", "S&Z")).toBe("M&Z");
     expect(deriveInitials("'Ashik", "Zayan", "S&Z")).toBe("A&Z");
   });
+
+  it("skips a non-Latin name instead of putting Bengali in the seal", () => {
+    // A Bengali pair returns "" so the caller keeps the template's initials.
+    expect(deriveInitials("সুমাইয়া", "জায়ান", "S&Z")).toBe("");
+    expect(deriveInitials("Émile Durand", "Ana Silva", "A · I")).toBe("É · A");
+  });
 });
 
 describe("deriveHashtag", () => {
