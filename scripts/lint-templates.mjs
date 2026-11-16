@@ -5,10 +5,11 @@
  *   node scripts/lint-templates.mjs
  *
  * Reads every `../template*` folder next to this repo. Nothing is modified. Exit code is 1 if any
- * template fails, so this can be wired into CI once WT-2 … WT-11 have landed.
+ * template fails, so this can be wired into CI once every template has landed.
  *
- * Hook and template.json are warnings in this ticket: no template has either yet, and
- * WT-1 is not allowed to touch them. WT-12's contract test turns both into hard failures.
+ * A missing hook or template.json is still a warning while WT-2 … WT-11 migrate the templates.
+ * WT-16's contract test already fails on a bad generated snapshot. Once every template has
+ * landed, flip both to failures: a failing template blocks publishing, not the build.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -182,7 +183,7 @@ async function inspect(dir) {
 
   const src = configPath ? readFileSync(configPath, "utf8") : "";
 
-  // 2. platform hook (warning in this ticket)
+  // 2. platform hook (warning until WT-2 … WT-11 land)
   if (src) {
     const state = hookState(src);
     if (state !== "ok") {
@@ -271,7 +272,7 @@ async function inspect(dir) {
   // 6. copy rendered from config vs hardcoded in index.html (informational)
   if (config) row("copy in index.html", copyInHtml(repoDir, config));
 
-  // 5. template.json (warning in this ticket)
+  // 5. template.json (warning until WT-2 … WT-11 land)
   if (!manifest) {
     warnings.push("template.json missing");
     row("template.json", "missing");
