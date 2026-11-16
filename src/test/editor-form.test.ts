@@ -47,8 +47,15 @@ describe("seedValues", () => {
     expect(values["eventDateTime"]).toBe("2026-12-11T16:00");
   });
 
-  it("starts the reply-by box empty: the template stores a display string, not a day", () => {
-    expect(values["rsvpDeadline"]).toBe("");
+  it("pre-fills the reply-by box from the template's display date", () => {
+    expect(values["rsvpDeadline"]).toBe("2026-11-20");
+  });
+
+  it("leaves the reply-by box empty when the display date cannot be read", () => {
+    const odd = clone((snapshot) => {
+      (snapshot.defaults["rsvp"] as { deadline: string }).deadline = "২০ নভেম্বর ২০২৬";
+    });
+    expect(seedValues(odd, scalarFields(odd))["rsvpDeadline"]).toBe("");
   });
 });
 

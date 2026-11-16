@@ -6,6 +6,7 @@ import {
   deriveHashtag,
   deriveInitials,
   deriveRsvpDeadline,
+  displayDateToIso,
   isoToLocal,
   rsvpDeadlineTargets,
 } from "@/lib/derive";
@@ -117,6 +118,35 @@ describe("deriveRsvpDeadline", () => {
       deriveRsvpDeadline("2027-01-25", { timeZone: "America/New_York", offset: "-05:00" })
         .deadlineEn,
     ).toBe("25 January 2027");
+  });
+});
+
+describe("displayDateToIso", () => {
+  it("round-trips every deadline the templates ship", () => {
+    for (const display of [
+      "20 November 2026",
+      "25 January 2027",
+      "1 March 2027",
+      "1 February 2027",
+    ]) {
+      const iso = displayDateToIso(display);
+      expect(iso).not.toBe("");
+      expect(deriveRsvpDeadline(iso, dhaka).deadlineEn).toBe(display);
+    }
+    expect(displayDateToIso("1 March 2027")).toBe("2027-03-01");
+  });
+
+  it("returns empty for anything it cannot read literally", () => {
+    // The Bangla copy, a month-first date and a numeric one are not the shape it knows.
+    for (const display of [
+      "",
+      "২০ নভেম্বর ২০২৬",
+      "November 20, 2026",
+      "20/11/2026",
+      "20 Nov 2026",
+    ]) {
+      expect(displayDateToIso(display)).toBe("");
+    }
   });
 });
 

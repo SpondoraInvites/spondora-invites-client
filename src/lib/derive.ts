@@ -61,6 +61,36 @@ function displayDate(
   }).format(new Date(iso));
 }
 
+/** English month names, so a display date can go back into `<input type="date">`. */
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * The reverse trip for pre-filling `<input type="date">`: "20 November 2026" → "2026-11-20".
+ * The configs write the English display date, so only that one order is understood; anything
+ * else yields "" and the caller keeps the template's own string.
+ */
+export function displayDateToIso(display: string): string {
+  const match = /^(\d{1,2}) ([A-Za-z]+) (\d{4})$/.exec(display.trim());
+  if (!match) return "";
+  const [, day, month, year] = match;
+  const index = MONTH_NAMES.indexOf(month!);
+  if (index < 0) return "";
+  return `${year}-${String(index + 1).padStart(2, "0")}-${day!.padStart(2, "0")}`;
+}
+
 /** `calStart` + 3 h, clamped to 23:59 so the calendar link stays inside one day. */
 function defaultCalEnd(calStart: string): string {
   const [h = 0, m = 0] = calStart.split(":").map(Number);
