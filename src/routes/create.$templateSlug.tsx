@@ -161,8 +161,9 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   return (
     <main className="w-full px-6 py-8 lg:px-10">
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-10">
-        <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:flex-1">
+      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up. */}
+      <div className="flex flex-col gap-8 lg:h-[calc(100vh-8rem)] lg:flex-row lg:items-stretch lg:gap-10">
+        <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:h-full lg:flex-1">
           {!loaded && (
             <div className="absolute inset-0 grid place-items-center text-xs text-gold/80 animate-pulse">
               Loading invitation…
@@ -180,7 +181,7 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
           )}
         </div>
 
-        <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:w-[26rem] lg:max-w-none">
+        <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:h-full lg:w-[26rem] lg:max-w-none lg:overflow-y-auto">
           <div>
             <span className="eyebrow text-primary">Editor preview</span>
             <h1 className="mt-2 text-3xl text-primary">{snapshot.manifest.name}</h1>
