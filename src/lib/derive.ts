@@ -125,6 +125,43 @@ export function deriveRsvpDeadline(
 }
 
 /**
+ * Path/value writes a derived date makes outside the form.
+ * `translations` paths are relative to a template's INVITE_TRANSLATIONS root.
+ * `calTz` is never written: the template's own zone stays.
+ */
+export interface DerivedTargets {
+  config: [string[], string][];
+  translations: [string[], string][];
+}
+
+/** Every string the main event shows, in both languages (WT-14b §1). */
+export function dateTargets(d: DerivedDateTime): DerivedTargets {
+  return {
+    config: [
+      [["dateDisplay"], d.dateEn],
+      [["events", "0", "date"], d.dateEn],
+      [["events", "0", "time"], d.timeEn],
+      [["events", "0", "calDate"], d.calDate],
+      [["events", "0", "calStart"], d.calStart],
+      [["events", "0", "calEnd"], d.calEnd],
+    ],
+    translations: [
+      [["bn", "dateDisplay"], d.dateBn],
+      [["bn", "events", "0", "date"], d.dateBn],
+      [["bn", "events", "0", "time"], d.timeBn],
+    ],
+  };
+}
+
+/** The reply-by day, as the display strings the templates print. `endOfDay` is not config. */
+export function rsvpDeadlineTargets(d: DerivedRsvpDeadline): DerivedTargets {
+  return {
+    config: [[["rsvp", "deadline"], d.deadlineEn]],
+    translations: [[["bn", "rsvp", "deadline"], d.deadlineBn]],
+  };
+}
+
+/**
  * The reverse trip for pre-filling `<input type="datetime-local">`.
  * The stored ISO already carries local wall-clock time plus the offset, so the
  * first 16 characters are the answer — no conversion, by design.

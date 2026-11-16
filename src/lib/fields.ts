@@ -33,8 +33,15 @@ export function readPath(root: Record<string, unknown>, path: string[]): string 
   return typeof value === "string" ? value : "";
 }
 
-/** The types WT-14a renders. `date` is WT-14b, `toggle` WT-14c, `group` WT-17. */
-const SCALAR_FORM_TYPES = new Set<FieldType>(["text", "textarea", "tel", "email", "datetime"]);
+/** The types the form renders. `toggle` is WT-14c, `group` WT-17. */
+const SCALAR_FORM_TYPES = new Set<FieldType>([
+  "text",
+  "textarea",
+  "tel",
+  "email",
+  "datetime",
+  "date",
+]);
 
 /**
  * The form's field list, in canonical order. A hashtag the template never displays
@@ -52,7 +59,7 @@ export function scalarFields(snapshot: TemplateSnapshot): Field[] {
  * Write one value at a path that already exists. A missing parent skips the write
  * instead of creating the path, so a typo in a template's config cannot invent keys.
  */
-function setAtPath(target: Record<string, unknown>, path: string[], value: unknown) {
+export function setAtPath(target: Record<string, unknown>, path: string[], value: unknown) {
   const last = path[path.length - 1]!;
   const parent = path
     .slice(0, -1)

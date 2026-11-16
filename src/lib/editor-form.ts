@@ -22,7 +22,10 @@ export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<
     fields.map((field) => {
       const value = readPath(snapshot.defaults, field.path);
       // The input shows local wall-clock time; the template keeps the ISO with its offset.
-      return [field.id, field.type === "datetime" ? isoToLocal(value) : value];
+      if (field.type === "datetime") return [field.id, isoToLocal(value)];
+      // A `date` value is the display string the template prints ("20 November 2026"), not
+      // an ISO day, so the box starts empty and the template's own string stays until a pick.
+      return [field.id, field.type === "date" ? "" : value];
     }),
   );
 }
