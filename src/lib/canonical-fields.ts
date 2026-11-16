@@ -126,7 +126,7 @@ export const CANONICAL_FIELDS: Field[] = [
     section: "Where",
     label: "Google Maps search",
     type: "text",
-    hint: "Paste the venue name exactly as Google Maps knows it, or coordinates.",
+    hint: "Paste the venue name exactly as Google Maps knows it, coordinates, or a Plus Code.",
     bilingual: false, // single-valued: one search string, no Bangla form
     required: true,
   },
@@ -168,6 +168,7 @@ export const CANONICAL_FIELDS: Field[] = [
     bilingual: false, // single-valued
     derived: "initials",
     required: false,
+    hint: "Used on the wax seal — 2–3 letters work best, e.g. S&Z",
   },
   {
     id: "hashtag",
@@ -178,6 +179,7 @@ export const CANONICAL_FIELDS: Field[] = [
     bilingual: false, // single-valued
     derived: "hashtag",
     required: false,
+    hint: "We add the # for you — type the words only, e.g. SumaiyaAndZayan",
   },
   {
     id: "localizationEnabled",

@@ -133,9 +133,14 @@ export function isoToLocal(iso: string): string {
   return iso.slice(0, 16);
 }
 
-/** First letter of the name, skipping leading punctuation ("Md. Rafi" → "M"). */
+/** First Latin letter of the name, skipping leading punctuation ("Md. Rafi" → "M"). */
 function firstLetter(name: string): string {
-  return name.trim().match(/\p{L}/u)?.[0].toUpperCase() ?? "";
+  return (
+    name
+      .trim()
+      .match(/\p{Script=Latin}/u)?.[0]
+      .toUpperCase() ?? ""
+  );
 }
 
 /** The separator the template already uses in its initials: "S&Z" → "&". */

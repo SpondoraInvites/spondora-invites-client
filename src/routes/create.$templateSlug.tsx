@@ -1,17 +1,19 @@
 /**
- * SPIKE — WT-13 vertical slice, not finished code.
+ * The invite editor (WT-13 spike, generic form from WT-14a).
  *
- * Five hardcoded inputs prove the loop form value → `#cfg=` hash → template re-render.
- * No draft, no validation, no save, no publish. WT-14 replaces the form with the full
- * field list and WT-15 adds the draft; do not build on this file as-is.
+ * Values live in local state and are written into the preview link's `#cfg=` hash.
+ * Nothing is saved yet (WT-15), the shell is WT-18, and the date internals are WT-14b.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { CANONICAL_FIELDS } from "@/lib/canonical-fields";
-import { deriveDateTime, deriveInitials, isoToLocal } from "@/lib/derive";
-import { resolveConfig, type TemplateSnapshot } from "@/lib/fields";
+import { useEffect, useMemo, useState } from "react";
+
+import { FormSections } from "@/components/editor/FormSections";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import type { Field } from "@/lib/canonical-fields";
+import { deriveDateTime } from "@/lib/derive";
+import { nextForm, seedValues, type FormState } from "@/lib/editor-form";
+import { normaliseMonogram, normaliseValue, validateField } from "@/lib/field-schema";
+import { readPath, resolveConfig, scalarFields, type TemplateSnapshot } from "@/lib/fields";
 import { templateOrigin } from "@/lib/template-origins";
 
 export const Route = createFileRoute("/create/$templateSlug")({
@@ -21,57 +23,26 @@ export const Route = createFileRoute("/create/$templateSlug")({
   component: CreatePage,
 });
 
-const SPIKE_FIELD_IDS = [
-  "partner1Name",
-  "partner2Name",
-  "monogramInitials",
-  "eventDateTime",
-  "venueName",
-];
-const SPIKE_FIELDS = SPIKE_FIELD_IDS.map((id) =>
-  CANONICAL_FIELDS.find((field) => field.id === id),
-).filter((field) => field !== undefined);
-
-function readPath(source: Record<string, unknown>, path: string[]): string {
-  const value = path.reduce<unknown>(
-    (node, key) => (node as Record<string, unknown> | undefined)?.[key],
-    source,
-  );
-  return typeof value === "string" ? value : "";
-}
-
-/** The form shows a local datetime; the template needs the ISO with its own offset. */
-const DATE_FIELD_ID = "eventDateTime";
-
-function seedValues(snapshot: TemplateSnapshot) {
-  return Object.fromEntries(
-    SPIKE_FIELDS.map((field) => {
-      const value = readPath(snapshot.defaults, field.path);
-      return [field.id, field.id === DATE_FIELD_ID ? isoToLocal(value) : value];
-    }),
-  );
-}
-
 /** `datetime-local` value → `2027-02-12T18:00:00+06:00`, keeping the template's offset. */
-function toTemplateIso(snapshot: TemplateSnapshot, local: string) {
+function toTemplateIso(snapshot: TemplateSnapshot, field: Field, local: string) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)) return "";
-  const templateIso = String(snapshot.defaults["weddingDateTime"] ?? "");
+  const templateIso = readPath(snapshot.defaults, field.path);
   const offset = /[+-]\d{2}:\d{2}$/.exec(templateIso)?.[0] ?? "+06:00";
   const event = (snapshot.defaults["events"] as { calTz?: string }[] | undefined)?.[0];
   return deriveDateTime(local, { timeZone: event?.calTz ?? "Asia/Dhaka", offset }).iso;
 }
 
 /** The full `#cfg=` hash for one set of form values. */
-function hashFor(snapshot: TemplateSnapshot, values: Record<string, string>) {
-  const iso = toTemplateIso(snapshot, values[DATE_FIELD_ID] ?? "");
-  // An empty or half-typed date would blank the countdown, so it falls back to the default.
-  const config = iso
-    ? resolveConfig(snapshot, SPIKE_FIELDS, { ...values, [DATE_FIELD_ID]: iso })
-    : resolveConfig(
-        snapshot,
-        SPIKE_FIELDS.filter((field) => field.id !== DATE_FIELD_ID),
-        values,
-      );
+function hashFor(snapshot: TemplateSnapshot, fields: Field[], values: Record<string, string>) {
+  const dateField = fields.find((field) => field.type === "datetime");
+  const iso = dateField ? toTemplateIso(snapshot, dateField, values[dateField.id] ?? "") : "";
+
+  // An empty or half-typed date would blank the countdown, so the template's default stays.
+  const config = resolveConfig(
+    snapshot,
+    iso ? fields : fields.filter((field) => field !== dateField),
+    dateField && iso ? { ...values, [dateField.id]: iso } : values,
+  );
 
   // Preview-only: no music loop or WhatsApp popups while typing.
   for (const key of ["music", "rsvp", "localization"]) {
@@ -80,7 +51,7 @@ function hashFor(snapshot: TemplateSnapshot, values: Record<string, string>) {
 
   // Send the template's own copy for every locale untouched. The hook replaces each
   // locale wholesale, so sending nothing would keep it too — but the editor must know
-  // that copy once WT-14 adds Bangla inputs.
+  // that copy once WT-14c adds Bangla inputs.
   const payload = Object.keys(snapshot.translations).length
     ? { config, translations: snapshot.translations }
     : { config };
@@ -104,42 +75,47 @@ function CreatePage() {
 }
 
 function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
-  const [values, setValues] = useState(() => seedValues(snapshot));
-  const [hash, setHash] = useState(() => hashFor(snapshot, seedValues(snapshot)));
-  const [initialsEdited, setInitialsEdited] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
+  const [form, setForm] = useState<FormState>(() => ({
+    values: seedValues(snapshot, fields),
+    touched: new Set<string>(),
+  }));
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [hash, setHash] = useState(() => hashFor(snapshot, fields, seedValues(snapshot, fields)));
+  // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
+  // set but never remounts (the first effect run) cannot hide or strand the overlay.
+  const [loadedHash, setLoadedHash] = useState<string>();
+  const loaded = loadedHash === hash;
   const [hydrated, setHydrated] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // The iframe must start loading in the browser, never in the server HTML: if it finishes
   // before hydration, `onLoad` fires with no handler and the loading overlay stays forever.
   useEffect(() => setHydrated(true), []);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
-  const update = (id: string, value: string) => {
-    const next = { ...values, [id]: value };
+  // Debounced so the iframe remounts once after a burst of typing, not on every key.
+  useEffect(() => {
+    const timer = setTimeout(() => setHash(hashFor(snapshot, fields, form.values)), 400);
+    return () => clearTimeout(timer);
+  }, [snapshot, fields, form.values]);
 
-    // WT-23 §3.5: the monogram follows the names until the user edits it, then it stays put.
-    if (id === "partner1Name" || id === "partner2Name") {
-      if (!initialsEdited) {
-        const derived = deriveInitials(
-          next["partner1Name"] ?? "",
-          next["partner2Name"] ?? "",
-          readPath(snapshot.defaults, ["couple", "initials"]),
-        );
-        if (derived) next["monogramInitials"] = derived;
-      }
-    } else if (id === "monogramInitials") {
-      setInitialsEdited(true);
+  const update = (field: Field, raw: string) => {
+    setForm((prev) => nextForm(snapshot, fields, prev, field, raw));
+    // Once a field shows an error, validate while it is fixed instead of waiting for blur.
+    if (errors[field.id] !== undefined) {
+      setErrors((prev) => ({
+        ...prev,
+        [field.id]: validateField(field, normaliseValue(field, raw)),
+      }));
     }
+  };
 
-    setValues(next);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      // The iframe is keyed by the hash, so a new hash remounts it and the template boots fresh.
-      setLoaded(false);
-      setHash(hashFor(snapshot, next));
-    }, 400);
+  const blur = (field: Field) => {
+    const current = form.values[field.id] ?? "";
+    const value = field.derived === "initials" ? normaliseMonogram(current) : current;
+    if (value !== current) {
+      setForm((prev) => ({ ...prev, values: { ...prev.values, [field.id]: value } }));
+    }
+    setErrors((prev) => ({ ...prev, [field.id]: validateField(field, value) }));
   };
 
   return (
@@ -156,7 +132,7 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
               key={hash}
               src={`${templateOrigin(snapshot.manifest.slug, snapshot.manifest.origin)}${hash}`}
               title={`${snapshot.manifest.name} live preview`}
-              onLoad={() => setLoaded(true)}
+              onLoad={() => setLoadedHash(hash)}
               allow="autoplay; fullscreen"
               className="h-full w-full bg-ink"
             />
@@ -165,23 +141,19 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
         <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:w-[26rem] lg:max-w-none">
           <div>
-            <span className="eyebrow text-primary">Editor spike</span>
+            <span className="eyebrow text-primary">Editor preview</span>
             <h1 className="mt-2 text-3xl text-primary">{snapshot.manifest.name}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               These inputs write straight into the preview link. Nothing is saved yet.
             </p>
           </div>
-          {SPIKE_FIELDS.map((field) => (
-            <label key={field.id} className="block">
-              <span className="text-sm font-medium">{field.label}</span>
-              <Input
-                className="mt-1.5"
-                type={field.id === DATE_FIELD_ID ? "datetime-local" : "text"}
-                value={values[field.id] ?? ""}
-                onChange={(event) => update(field.id, event.target.value)}
-              />
-            </label>
-          ))}
+          <FormSections
+            fields={fields}
+            values={form.values}
+            errors={errors}
+            onChange={update}
+            onBlur={blur}
+          />
         </aside>
       </div>
     </main>

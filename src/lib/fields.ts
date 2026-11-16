@@ -6,7 +6,7 @@
  * mention), its `INVITE_TRANSLATIONS` by locale, and the form fields derived from the
  * paths this template actually has. The generated data itself lives in `src/data/templates/`.
  */
-import type { Field } from "@/lib/canonical-fields";
+import type { Field, FieldType } from "@/lib/canonical-fields";
 
 export interface TemplateSnapshot {
   manifest: {
@@ -22,6 +22,30 @@ export interface TemplateSnapshot {
   defaults: Record<string, unknown>;
   translations: Record<string, Record<string, unknown>>;
   fields: Field[];
+}
+
+/** One value at a path, or "" when the path is missing or holds something else. */
+export function readPath(root: Record<string, unknown>, path: string[]): string {
+  const value = path.reduce<unknown>(
+    (node, key) => (node as Record<string, unknown> | undefined)?.[key],
+    root,
+  );
+  return typeof value === "string" ? value : "";
+}
+
+/** The types WT-14a renders. `date` is WT-14b, `toggle` WT-14c, `group` WT-17. */
+const SCALAR_FORM_TYPES = new Set<FieldType>(["text", "textarea", "tel", "email", "datetime"]);
+
+/**
+ * The form's field list, in canonical order. A hashtag the template never displays
+ * (`couple.hashtag: ""`) is left out instead of becoming an empty question.
+ */
+export function scalarFields(snapshot: TemplateSnapshot): Field[] {
+  return snapshot.fields.filter(
+    (field) =>
+      SCALAR_FORM_TYPES.has(field.type) &&
+      !(field.derived === "hashtag" && readPath(snapshot.defaults, field.path) === ""),
+  );
 }
 
 /**
