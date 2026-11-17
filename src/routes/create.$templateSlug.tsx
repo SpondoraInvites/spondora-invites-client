@@ -200,8 +200,10 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   return (
     <main className="w-full px-6 py-8 lg:px-10">
-      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up. */}
-      <div className="flex flex-col gap-8 lg:h-[calc(100vh-8rem)] lg:flex-row lg:items-stretch lg:gap-10">
+      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up.
+          The 900px floor is what the invitation's cover needs: it scales its type by width
+          but lays it out by height, so a shorter pane makes the lines overlap. */}
+      <div className="flex flex-col gap-8 lg:h-[max(900px,calc(100vh-8rem))] lg:flex-row lg:items-stretch lg:gap-10">
         <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:h-full lg:flex-1">
           {!loaded && (
             <div className="absolute inset-0 grid place-items-center text-xs text-gold/80 animate-pulse">
