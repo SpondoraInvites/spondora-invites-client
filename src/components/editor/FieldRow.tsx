@@ -15,7 +15,12 @@ interface FieldRowProps {
   onBlur: (field: Field) => void;
 }
 
-const INPUT_TYPES = { tel: "tel", email: "email", datetime: "datetime-local" } as const;
+const INPUT_TYPES = {
+  tel: "tel",
+  email: "email",
+  datetime: "datetime-local",
+  date: "date",
+} as const;
 
 /** Label, input, hint, error — one question from the data-driven form. */
 export function FieldRow({ field, value, error, onChange, onBlur }: FieldRowProps) {

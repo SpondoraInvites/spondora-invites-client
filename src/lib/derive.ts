@@ -61,6 +61,36 @@ function displayDate(
   }).format(new Date(iso));
 }
 
+/** English month names, so a display date can go back into `<input type="date">`. */
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * The reverse trip for pre-filling `<input type="date">`: "20 November 2026" → "2026-11-20".
+ * The configs write the English display date, so only that one order is understood; anything
+ * else yields "" and the caller keeps the template's own string.
+ */
+export function displayDateToIso(display: string): string {
+  const match = /^(\d{1,2}) ([A-Za-z]+) (\d{4})$/.exec(display.trim());
+  if (!match) return "";
+  const [, day, month, year] = match;
+  const index = MONTH_NAMES.indexOf(month!);
+  if (index < 0) return "";
+  return `${year}-${String(index + 1).padStart(2, "0")}-${day!.padStart(2, "0")}`;
+}
+
 /** `calStart` + 3 h, clamped to 23:59 so the calendar link stays inside one day. */
 function defaultCalEnd(calStart: string): string {
   const [h = 0, m = 0] = calStart.split(":").map(Number);
@@ -121,6 +151,43 @@ export function deriveRsvpDeadline(
     deadlineEn: displayDate(iso, ctx.timeZone, "en-GB"),
     deadlineBn: displayDate(iso, ctx.timeZone, "bn-BD"),
     endOfDay: `${date}T23:59:00${ctx.offset}`,
+  };
+}
+
+/**
+ * Path/value writes a derived date makes outside the form.
+ * `translations` paths are relative to a template's INVITE_TRANSLATIONS root.
+ * `calTz` is never written: the template's own zone stays.
+ */
+export interface DerivedTargets {
+  config: [string[], string][];
+  translations: [string[], string][];
+}
+
+/** Every string the main event shows, in both languages (WT-14b §1). */
+export function dateTargets(d: DerivedDateTime): DerivedTargets {
+  return {
+    config: [
+      [["dateDisplay"], d.dateEn],
+      [["events", "0", "date"], d.dateEn],
+      [["events", "0", "time"], d.timeEn],
+      [["events", "0", "calDate"], d.calDate],
+      [["events", "0", "calStart"], d.calStart],
+      [["events", "0", "calEnd"], d.calEnd],
+    ],
+    translations: [
+      [["bn", "dateDisplay"], d.dateBn],
+      [["bn", "events", "0", "date"], d.dateBn],
+      [["bn", "events", "0", "time"], d.timeBn],
+    ],
+  };
+}
+
+/** The reply-by day, as the display strings the templates print. `endOfDay` is not config. */
+export function rsvpDeadlineTargets(d: DerivedRsvpDeadline): DerivedTargets {
+  return {
+    config: [[["rsvp", "deadline"], d.deadlineEn]],
+    translations: [[["bn", "rsvp", "deadline"], d.deadlineBn]],
   };
 }
 

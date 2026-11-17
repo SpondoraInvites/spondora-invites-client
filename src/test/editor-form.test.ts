@@ -25,6 +25,7 @@ describe("scalarFields", () => {
       "eventDateTime",
       "venueMapQuery",
       "rsvpWhatsapp",
+      "rsvpDeadline",
       "monogramInitials",
     ]);
   });
@@ -36,6 +37,25 @@ describe("scalarFields", () => {
       (snapshot.defaults["couple"] as { hashtag: string }).hashtag = "#AyeshaAndImran";
     });
     expect(scalarFields(tagged).some((field) => field.id === "hashtag")).toBe(true);
+  });
+});
+
+describe("seedValues", () => {
+  const values = seedValues(base, scalarFields(base));
+
+  it("shows the wedding date as local wall-clock time", () => {
+    expect(values["eventDateTime"]).toBe("2026-12-11T16:00");
+  });
+
+  it("pre-fills the reply-by box from the template's display date", () => {
+    expect(values["rsvpDeadline"]).toBe("2026-11-20");
+  });
+
+  it("leaves the reply-by box empty when the display date cannot be read", () => {
+    const odd = clone((snapshot) => {
+      (snapshot.defaults["rsvp"] as { deadline: string }).deadline = "২০ নভেম্বর ২০২৬";
+    });
+    expect(seedValues(odd, scalarFields(odd))["rsvpDeadline"]).toBe("");
   });
 });
 

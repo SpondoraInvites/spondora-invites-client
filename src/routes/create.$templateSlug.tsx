@@ -1,8 +1,8 @@
 /**
- * The invite editor (WT-13 spike, generic form from WT-14a).
+ * The invite editor (WT-13 spike, generic form from WT-14a, dates from WT-14b).
  *
  * Values live in local state and are written into the preview link's `#cfg=` hash.
- * Nothing is saved yet (WT-15), the shell is WT-18, and the date internals are WT-14b.
+ * Nothing is saved yet (WT-15) and the shell is WT-18.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -10,10 +10,23 @@ import { useEffect, useMemo, useState } from "react";
 import { FormSections } from "@/components/editor/FormSections";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
 import type { Field } from "@/lib/canonical-fields";
-import { deriveDateTime } from "@/lib/derive";
+import {
+  dateTargets,
+  deriveDateTime,
+  deriveRsvpDeadline,
+  rsvpDeadlineTargets,
+  type DateTimeContext,
+  type DerivedTargets,
+} from "@/lib/derive";
 import { nextForm, seedValues, type FormState } from "@/lib/editor-form";
 import { normaliseMonogram, normaliseValue, validateField } from "@/lib/field-schema";
-import { readPath, resolveConfig, scalarFields, type TemplateSnapshot } from "@/lib/fields";
+import {
+  readPath,
+  resolveConfig,
+  scalarFields,
+  setAtPath,
+  type TemplateSnapshot,
+} from "@/lib/fields";
 import { templateOrigin } from "@/lib/template-origins";
 
 export const Route = createFileRoute("/create/$templateSlug")({
@@ -23,26 +36,56 @@ export const Route = createFileRoute("/create/$templateSlug")({
   component: CreatePage,
 });
 
-/** `datetime-local` value → `2027-02-12T18:00:00+06:00`, keeping the template's offset. */
-function toTemplateIso(snapshot: TemplateSnapshot, field: Field, local: string) {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)) return "";
-  const templateIso = readPath(snapshot.defaults, field.path);
-  const offset = /[+-]\d{2}:\d{2}$/.exec(templateIso)?.[0] ?? "+06:00";
-  const event = (snapshot.defaults["events"] as { calTz?: string }[] | undefined)?.[0];
-  return deriveDateTime(local, { timeZone: event?.calTz ?? "Asia/Dhaka", offset }).iso;
+/** The template's own zone and offset, so a picked wall-clock time is never recalculated. */
+function dateContext(snapshot: TemplateSnapshot): DateTimeContext {
+  const templateIso = readPath(snapshot.defaults, ["weddingDateTime"]);
+  const event = (
+    snapshot.defaults["events"] as { calTz?: string; calEnd?: string }[] | undefined
+  )?.[0];
+  const calEnd = event?.calEnd ?? "";
+  return {
+    offset: /[+-]\d{2}:\d{2}$/.exec(templateIso)?.[0] ?? "+06:00",
+    timeZone: event?.calTz ?? "Asia/Dhaka",
+    // A readable end keeps the event's duration: a 6–10 pm wedding stays 4 hours.
+    ...(/^\d{2}:\d{2}$/.test(calEnd) ? { previousCalEnd: calEnd } : {}),
+  };
+}
+
+/** Write the derived strings the resolver cannot reach: display paths and the Bangla copy. */
+function applyTargets(
+  config: Record<string, unknown>,
+  translations: Record<string, unknown>,
+  targets: DerivedTargets,
+) {
+  for (const [path, value] of targets.config) setAtPath(config, path, value);
+  for (const [path, value] of targets.translations) setAtPath(translations, path, value);
 }
 
 /** The full `#cfg=` hash for one set of form values. */
 function hashFor(snapshot: TemplateSnapshot, fields: Field[], values: Record<string, string>) {
+  const ctx = dateContext(snapshot);
   const dateField = fields.find((field) => field.type === "datetime");
-  const iso = dateField ? toTemplateIso(snapshot, dateField, values[dateField.id] ?? "") : "";
+  const deadlineField = fields.find((field) => field.type === "date");
 
-  // An empty or half-typed date would blank the countdown, so the template's default stays.
+  const local = dateField ? (values[dateField.id] ?? "") : "";
+  const date = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)
+    ? deriveDateTime(local, ctx)
+    : undefined;
+  // `<input type="date">` gives "2027-01-25"; an empty or half-picked day writes nothing.
+  const day = deadlineField ? (values[deadlineField.id] ?? "") : "";
+  const deadline = /^\d{4}-\d{2}-\d{2}$/.test(day) ? deriveRsvpDeadline(day, ctx) : undefined;
+
+  // The date inputs' own writes are the derived strings below, never the raw input value.
+  const written = fields.filter((field) => field !== deadlineField);
   const config = resolveConfig(
     snapshot,
-    iso ? fields : fields.filter((field) => field !== dateField),
-    dateField && iso ? { ...values, [dateField.id]: iso } : values,
+    date ? written : written.filter((field) => field !== dateField),
+    date && dateField ? { ...values, [dateField.id]: date.iso } : values,
   );
+
+  const translations = structuredClone(snapshot.translations);
+  if (date) applyTargets(config, translations, dateTargets(date));
+  if (deadline) applyTargets(config, translations, rsvpDeadlineTargets(deadline));
 
   // Preview-only: no music loop or WhatsApp popups while typing.
   for (const key of ["music", "rsvp", "localization"]) {
@@ -52,9 +95,7 @@ function hashFor(snapshot: TemplateSnapshot, fields: Field[], values: Record<str
   // Send the template's own copy for every locale untouched. The hook replaces each
   // locale wholesale, so sending nothing would keep it too — but the editor must know
   // that copy once WT-14c adds Bangla inputs.
-  const payload = Object.keys(snapshot.translations).length
-    ? { config, translations: snapshot.translations }
-    : { config };
+  const payload = Object.keys(translations).length ? { config, translations } : { config };
   return `#cfg=${encodeURIComponent(JSON.stringify(payload))}`;
 }
 
@@ -120,8 +161,9 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   return (
     <main className="w-full px-6 py-8 lg:px-10">
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-10">
-        <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:flex-1">
+      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up. */}
+      <div className="flex flex-col gap-8 lg:h-[calc(100vh-8rem)] lg:flex-row lg:items-stretch lg:gap-10">
+        <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:h-full lg:flex-1">
           {!loaded && (
             <div className="absolute inset-0 grid place-items-center text-xs text-gold/80 animate-pulse">
               Loading invitation…
@@ -139,7 +181,7 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
           )}
         </div>
 
-        <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:w-[26rem] lg:max-w-none">
+        <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:h-full lg:w-[26rem] lg:max-w-none lg:overflow-y-auto">
           <div>
             <span className="eyebrow text-primary">Editor preview</span>
             <h1 className="mt-2 text-3xl text-primary">{snapshot.manifest.name}</h1>

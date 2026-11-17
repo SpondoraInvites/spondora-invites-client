@@ -5,7 +5,7 @@
  * spans fields is "a derived value follows the names until the couple edits it".
  */
 import type { Field } from "@/lib/canonical-fields";
-import { deriveHashtag, deriveInitials, isoToLocal } from "@/lib/derive";
+import { deriveHashtag, deriveInitials, displayDateToIso, isoToLocal } from "@/lib/derive";
 import { readPath, type TemplateSnapshot } from "@/lib/fields";
 import { normaliseValue } from "@/lib/field-schema";
 
@@ -22,7 +22,10 @@ export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<
     fields.map((field) => {
       const value = readPath(snapshot.defaults, field.path);
       // The input shows local wall-clock time; the template keeps the ISO with its offset.
-      return [field.id, field.type === "datetime" ? isoToLocal(value) : value];
+      if (field.type === "datetime") return [field.id, isoToLocal(value)];
+      // A `date` value is the display string the template prints ("20 November 2026").
+      // An unreadable one leaves the box empty and the template's own string in place.
+      return [field.id, field.type === "date" ? displayDateToIso(value) : value];
     }),
   );
 }

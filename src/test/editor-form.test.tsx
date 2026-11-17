@@ -43,10 +43,28 @@ describe("the editor form", () => {
       "Google Maps search",
       "Wedding date & time",
       "WhatsApp number",
+      "Reply by",
     ]);
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
     ).toEqual(["Couple", "Family", "Where", "When", "RSVP"]);
+  });
+
+  it("renders the reply-by deadline as a date input", () => {
+    renderForm(base, scalarFields(base));
+
+    expect(screen.getByLabelText("Reply by")).toHaveAttribute("type", "date");
+  });
+
+  it("renders no deadline input when the template has no rsvp.deadline", () => {
+    // The sync script only emits the field for a template whose config has the path.
+    const withoutDeadline = {
+      ...base,
+      fields: base.fields.filter((field) => field.id !== "rsvpDeadline"),
+    };
+    renderForm(withoutDeadline, scalarFields(withoutDeadline));
+
+    expect(labels()).not.toContain("Reply by");
   });
 
   it("renders no family line when the template has no welcome.parents1 path", () => {

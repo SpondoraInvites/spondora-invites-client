@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  dateTargets,
   deriveCity,
   deriveDateTime,
   deriveHashtag,
   deriveInitials,
   deriveRsvpDeadline,
+  displayDateToIso,
   isoToLocal,
+  rsvpDeadlineTargets,
 } from "@/lib/derive";
+import { setAtPath } from "@/lib/fields";
 
 // WT-23 §3 is the contract. Every expectation below is quoted from it.
 const dhaka = { timeZone: "Asia/Dhaka", offset: "+06:00" };
@@ -104,9 +108,7 @@ describe("deriveRsvpDeadline", () => {
   it("gives both display strings with no weekday and a 23:59 end of day", () => {
     const d = deriveRsvpDeadline("2027-01-25", dhaka);
     expect(d.deadlineEn).toBe("25 January 2027");
-    expect(d.deadlineBn).toContain("২৫");
-    expect(d.deadlineBn).toContain("জানুয়ারি");
-    expect(d.deadlineBn).not.toContain("সোমবার");
+    expect(d.deadlineBn).toBe("২৫ জানুয়ারি, ২০২৭");
     expect(d.endOfDay).toBe("2027-01-25T23:59:00+06:00");
   });
 
@@ -116,6 +118,90 @@ describe("deriveRsvpDeadline", () => {
       deriveRsvpDeadline("2027-01-25", { timeZone: "America/New_York", offset: "-05:00" })
         .deadlineEn,
     ).toBe("25 January 2027");
+  });
+});
+
+describe("displayDateToIso", () => {
+  it("round-trips every deadline the templates ship", () => {
+    for (const display of [
+      "20 November 2026",
+      "25 January 2027",
+      "1 March 2027",
+      "1 February 2027",
+    ]) {
+      const iso = displayDateToIso(display);
+      expect(iso).not.toBe("");
+      expect(deriveRsvpDeadline(iso, dhaka).deadlineEn).toBe(display);
+    }
+    expect(displayDateToIso("1 March 2027")).toBe("2027-03-01");
+  });
+
+  it("returns empty for anything it cannot read literally", () => {
+    // The Bangla copy, a month-first date and a numeric one are not the shape it knows.
+    for (const display of [
+      "",
+      "২০ নভেম্বর ২০২৬",
+      "November 20, 2026",
+      "20/11/2026",
+      "20 Nov 2026",
+    ]) {
+      expect(displayDateToIso(display)).toBe("");
+    }
+  });
+});
+
+describe("dateTargets", () => {
+  it("writes the main event's strings in both languages, with the live-call values", () => {
+    expect(dateTargets(deriveDateTime("2027-02-12T18:00", dhaka))).toEqual({
+      config: [
+        [["dateDisplay"], "Friday, 12 February 2027"],
+        [["events", "0", "date"], "Friday, 12 February 2027"],
+        [["events", "0", "time"], "6:00 PM"],
+        [["events", "0", "calDate"], "2027-02-12"],
+        [["events", "0", "calStart"], "18:00"],
+        [["events", "0", "calEnd"], "21:00"],
+      ],
+      translations: [
+        [["bn", "dateDisplay"], "শুক্রবার, ১২ ফেব্রুয়ারি, ২০২৭"],
+        [["bn", "events", "0", "date"], "শুক্রবার, ১২ ফেব্রুয়ারি, ২০২৭"],
+        [["bn", "events", "0", "time"], "সন্ধ্যা ৬:০০"],
+      ],
+    });
+  });
+
+  it("leaves later events alone when the wedding runs three days", () => {
+    // template1-standard's shape: 11, 12 and 13 February, with 12 behind weddingDateTime.
+    const config: Record<string, unknown> = {
+      dateDisplay: "Thursday, 11 February 2027",
+      events: [
+        { date: "Thursday, 11 February 2027", calDate: "2027-02-11" },
+        { date: "Thursday, 11 February 2027", calDate: "2027-02-11" },
+        { date: "Saturday, 13 February 2027", calDate: "2027-02-13" },
+      ],
+    };
+    const applied = structuredClone(config);
+    for (const [path, value] of dateTargets(deriveDateTime("2027-02-12T18:00", dhaka)).config) {
+      setAtPath(applied, path, value);
+    }
+
+    expect(applied["dateDisplay"]).toBe("Friday, 12 February 2027");
+    expect((applied["events"] as unknown[])[1]).toEqual({
+      date: "Thursday, 11 February 2027",
+      calDate: "2027-02-11",
+    });
+    expect((applied["events"] as unknown[])[2]).toEqual({
+      date: "Saturday, 13 February 2027",
+      calDate: "2027-02-13",
+    });
+  });
+});
+
+describe("rsvpDeadlineTargets", () => {
+  it("writes the display strings, never the ISO day or the end-of-day instant", () => {
+    expect(rsvpDeadlineTargets(deriveRsvpDeadline("2027-01-25", dhaka))).toEqual({
+      config: [[["rsvp", "deadline"], "25 January 2027"]],
+      translations: [[["bn", "rsvp", "deadline"], "২৫ জানুয়ারি, ২০২৭"]],
+    });
   });
 });
 
