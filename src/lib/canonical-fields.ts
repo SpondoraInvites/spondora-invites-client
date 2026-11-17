@@ -37,6 +37,8 @@ export interface Field {
   type: FieldType;
   section?: string; // form grouping
   label?: string;
+  /** The Bangla input's own label. Omitted for a field that has no Bangla input. */
+  labelBn?: string;
   hint?: string;
   options?: string[];
 
@@ -62,6 +64,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["couple", "name1"],
     section: "Couple",
     label: "Partner 1 name",
+    labelBn: "১ম সাথীর নাম",
     type: "text",
     bilingual: true,
     required: true,
@@ -71,6 +74,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["couple", "name2"],
     section: "Couple",
     label: "Partner 2 name",
+    labelBn: "২য় সাথীর নাম",
     type: "text",
     bilingual: true,
     required: true,
@@ -80,6 +84,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["welcome", "parents1"],
     section: "Family",
     label: "Bride's family line",
+    labelBn: "কনের পারিবারিক পরিচয়",
     type: "text",
     bilingual: true,
     required: true,
@@ -89,6 +94,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["welcome", "parents2"],
     section: "Family",
     label: "Groom's family line",
+    labelBn: "বরের পারিবারিক পরিচয়",
     type: "text",
     bilingual: true,
     required: true,
@@ -98,6 +104,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["venue", "name"],
     section: "Where",
     label: "Venue name",
+    labelBn: "স্থানের নাম",
     type: "text",
     bilingual: true,
     required: true,
@@ -107,6 +114,7 @@ export const CANONICAL_FIELDS: Field[] = [
     path: ["venue", "address"],
     section: "Where",
     label: "Address",
+    labelBn: "ঠিকানা",
     type: "textarea",
     bilingual: true,
     required: true,

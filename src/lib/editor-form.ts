@@ -6,11 +6,13 @@
  */
 import type { Field } from "@/lib/canonical-fields";
 import { deriveHashtag, deriveInitials, displayDateToIso, isoToLocal } from "@/lib/derive";
-import { readPath, type TemplateSnapshot } from "@/lib/fields";
+import { banglaTree, bilingualFields, readPath, type TemplateSnapshot } from "@/lib/fields";
 import { normaliseValue } from "@/lib/field-schema";
 
 export interface FormState {
   values: Record<string, string>;
+  /** Bangla, keyed by the same field id (WT-14c). Empty when the template has no bn tree. */
+  translations: Record<string, string>;
   touched: Set<string>;
 }
 
@@ -35,20 +37,43 @@ function nameValue(values: Record<string, string>, fields: Field[], path: string
   return field ? (values[field.id] ?? "") : "";
 }
 
+/** The Bangla values the form starts with, keyed by the same field id (WT-14c). Only the
+ *  fields whose bn path this template carries, so a half-migrated design has fewer. */
+export function seedTranslations(
+  snapshot: TemplateSnapshot,
+  fields: Field[],
+): Record<string, string> {
+  const bn = banglaTree(snapshot.translations);
+  if (!bn) return {};
+  return Object.fromEntries(
+    bilingualFields(snapshot, fields).map((field) => [field.id, readPath(bn, field.path)]),
+  );
+}
+
 /** One edit: normalise it, remember it if it is derived, and move the derived values
- *  that are still following the names. */
+ *  that are still following the names. A Bangla edit only touches `translations` — the
+ *  derived values come from the English names, never from the Bangla ones. */
 export function nextForm(
   snapshot: TemplateSnapshot,
   fields: Field[],
   prev: FormState,
   field: Field,
   raw: string,
+  bn = false,
 ): FormState {
+  if (bn) {
+    return {
+      ...prev,
+      translations: { ...prev.translations, [field.id]: raw },
+      touched: new Set(prev.touched).add(`${field.id}:bn`),
+    };
+  }
+
   const values = { ...prev.values, [field.id]: normaliseValue(field, raw) };
   // Editing a derived field makes it the couple's own; a later name change leaves it alone.
   const touched = field.derived ? new Set(prev.touched).add(field.id) : prev.touched;
 
-  if (!NAME_PATHS.includes(field.path.join("."))) return { values, touched };
+  if (!NAME_PATHS.includes(field.path.join("."))) return { ...prev, values, touched };
 
   const name1 = nameValue(values, fields, NAME_PATHS[0]!);
   const name2 = nameValue(values, fields, NAME_PATHS[1]!);
@@ -62,5 +87,5 @@ export function nextForm(
     if (next) values[derived.id] = next;
   }
 
-  return { values, touched };
+  return { ...prev, values, touched };
 }
