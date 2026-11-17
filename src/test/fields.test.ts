@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveConfig, type TemplateSnapshot } from "@/lib/fields";
+import type { Field } from "@/lib/canonical-fields";
+import { resolveConfig, resolveTranslations, type TemplateSnapshot } from "@/lib/fields";
 
 const snapshot: TemplateSnapshot = {
   manifest: {
@@ -58,5 +59,42 @@ describe("resolveConfig", () => {
     const config = resolveConfig(snapshot, fields, { partner1Name: "Rima" });
 
     expect(structuredClone(config)).toEqual(config);
+  });
+});
+
+describe("resolveTranslations", () => {
+  const bilingual: TemplateSnapshot = {
+    ...snapshot,
+    translations: { bn: { couple: { name1: "আয়েশা রহমান" }, venue: {} } },
+  };
+  const paths: Field[] = [
+    { id: "partner1Name", path: ["couple", "name1"], type: "text", bilingual: true },
+    { id: "venueName", path: ["venue", "name"], type: "text", bilingual: true },
+  ];
+
+  it("writes a Bangla value at its bn path and leaves the rest alone", () => {
+    const translations = resolveTranslations(bilingual, paths, { partner1Name: "রিমা" });
+
+    expect(translations["bn"]).toEqual({ couple: { name1: "রিমা" }, venue: {} });
+  });
+
+  it("keeps the template's Bangla when a value was never seeded", () => {
+    const translations = resolveTranslations(bilingual, paths, {});
+
+    expect(translations["bn"]).toEqual({ couple: { name1: "আয়েশা রহমান" }, venue: {} });
+  });
+
+  it("does not mutate the snapshot translations", () => {
+    resolveTranslations(bilingual, paths, { partner1Name: "রিমা" });
+
+    expect(bilingual.translations).toEqual({
+      bn: { couple: { name1: "আয়েশা রহমান" }, venue: {} },
+    });
+  });
+
+  it("returns the tree untouched when the template has no bn tree", () => {
+    const englishOnly: TemplateSnapshot = { ...snapshot, translations: {} };
+
+    expect(resolveTranslations(englishOnly, paths, { partner1Name: "রিমা" })).toEqual({});
   });
 });

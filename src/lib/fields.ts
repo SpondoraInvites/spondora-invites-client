@@ -24,16 +24,56 @@ export interface TemplateSnapshot {
   fields: Field[];
 }
 
-/** One value at a path, or "" when the path is missing or holds something else. */
-export function readPath(root: Record<string, unknown>, path: string[]): string {
-  const value = path.reduce<unknown>(
+/** One raw value at a path, or undefined when the path is missing. */
+export function readValue(root: Record<string, unknown>, path: string[]): unknown {
+  return path.reduce<unknown>(
     (node, key) => (node as Record<string, unknown> | undefined)?.[key],
     root,
   );
+}
+
+/** One value at a path, or "" when the path is missing or holds something else. */
+export function readPath(root: Record<string, unknown>, path: string[]): string {
+  const value = readValue(root, path);
   return typeof value === "string" ? value : "";
 }
 
-/** The types the form renders. `toggle` is WT-14c, `group` WT-17. */
+/** The template's Bangla tree, when it publishes one (WT-24). A snapshot from a template
+ *  that has not migrated yet may carry no `translations` at all. */
+export function banglaTree(
+  translations: Record<string, Record<string, unknown>> | null | undefined,
+) {
+  const bn = translations?.["bn"];
+  return bn && typeof bn === "object" ? bn : undefined;
+}
+
+/** The fields that get a Bangla input: marked bilingual, and the bn tree carries their path.
+ *  A half-migrated template legitimately has fewer — a field without a bn path is skipped. */
+export function bilingualFields(snapshot: TemplateSnapshot, fields: Field[]): Field[] {
+  const bn = banglaTree(snapshot.translations);
+  if (!bn) return [];
+  return fields.filter((field) => field.bilingual && readValue(bn, field.path) !== undefined);
+}
+
+/** Write the Bangla values into a clone of the template's bn tree. Never creates a path
+ *  the template does not have, and leaves the other locales as they are. */
+export function resolveTranslations(
+  snapshot: TemplateSnapshot,
+  fields: Field[],
+  translations: Record<string, string>,
+): Record<string, Record<string, unknown>> {
+  const tree = structuredClone(snapshot.translations ?? {});
+  const bn = banglaTree(tree);
+  if (!bn) return tree;
+  for (const field of bilingualFields(snapshot, fields)) {
+    const value = translations[field.id];
+    if (value !== undefined) setAtPath(bn, field.path, value);
+  }
+  return tree;
+}
+
+/** The types the form renders as inputs. `toggle` renders above the form (WT-14c), `group`
+ *  is WT-17. */
 const SCALAR_FORM_TYPES = new Set<FieldType>([
   "text",
   "textarea",

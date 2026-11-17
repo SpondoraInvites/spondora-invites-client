@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
-import { nextForm, seedValues, type FormState } from "@/lib/editor-form";
+import { nextForm, seedTranslations, seedValues, type FormState } from "@/lib/editor-form";
 import { scalarFields, type TemplateSnapshot } from "@/lib/fields";
 
 const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
@@ -65,7 +65,11 @@ describe("nextForm", () => {
   });
   const fields = scalarFields(snapshot);
   const byId = (id: string) => fields.find((field) => field.id === id)!;
-  const start = (): FormState => ({ values: seedValues(snapshot, fields), touched: new Set() });
+  const start = (): FormState => ({
+    values: seedValues(snapshot, fields),
+    translations: seedTranslations(snapshot, fields),
+    touched: new Set(),
+  });
 
   it("derives the hashtag from the names while it is untouched", () => {
     const form = nextForm(snapshot, fields, start(), byId("partner1Name"), "Sumaiya Karim");
@@ -99,5 +103,16 @@ describe("nextForm", () => {
   it("keeps the WhatsApp number as digits", () => {
     const form = nextForm(snapshot, fields, start(), byId("rsvpWhatsapp"), "+880 1353-218337");
     expect(form.values.rsvpWhatsapp).toBe("8801353218337");
+  });
+
+  it("keeps a Bangla edit out of the English values and the derived fields", () => {
+    const form = nextForm(snapshot, fields, start(), byId("partner1Name"), "সুমাইয়া", true);
+
+    expect(form.translations["partner1Name"]).toBe("সুমাইয়া");
+    expect(form.values["partner1Name"]).toBe("Ayesha Rahman");
+    // The initials and hashtag come from the English names, not the Bangla ones.
+    expect(form.values["hashtag"]).toBe("#AyeshaAndImran");
+    expect(form.touched.has("partner1Name:bn")).toBe(true);
+    expect(form.touched.has("hashtag")).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 /**
- * The invite editor (WT-13 spike, generic form from WT-14a, dates from WT-14b).
+ * The invite editor (WT-13 spike, generic form from WT-14a, dates from WT-14b, bilingual
+ *  inputs from WT-14c).
  *
  * Values live in local state and are written into the preview link's `#cfg=` hash.
  * Nothing is saved yet (WT-15) and the shell is WT-18.
@@ -18,11 +19,13 @@ import {
   type DateTimeContext,
   type DerivedTargets,
 } from "@/lib/derive";
-import { nextForm, seedValues, type FormState } from "@/lib/editor-form";
+import { nextForm, seedTranslations, seedValues, type FormState } from "@/lib/editor-form";
 import { normaliseMonogram, normaliseValue, validateField } from "@/lib/field-schema";
 import {
   readPath,
+  readValue,
   resolveConfig,
+  resolveTranslations,
   scalarFields,
   setAtPath,
   type TemplateSnapshot,
@@ -61,8 +64,26 @@ function applyTargets(
   for (const [path, value] of targets.translations) setAtPath(translations, path, value);
 }
 
+/** The template's language switch field, when its config has one. */
+function toggleField(snapshot: TemplateSnapshot) {
+  return snapshot.fields.find((field) => field.type === "toggle");
+}
+
+/** Bangla is collected unless the template's own config says otherwise. A template with no
+ *  toggle at all publishes English only. */
+function banglaEnabled(snapshot: TemplateSnapshot): boolean {
+  const field = toggleField(snapshot);
+  return field ? readValue(snapshot.defaults, field.path) !== false : false;
+}
+
 /** The full `#cfg=` hash for one set of form values. */
-function hashFor(snapshot: TemplateSnapshot, fields: Field[], values: Record<string, string>) {
+function hashFor(
+  snapshot: TemplateSnapshot,
+  fields: Field[],
+  form: Pick<FormState, "values" | "translations">,
+  bilingual: boolean,
+) {
+  const { values } = form;
   const ctx = dateContext(snapshot);
   const dateField = fields.find((field) => field.type === "datetime");
   const deadlineField = fields.find((field) => field.type === "date");
@@ -83,18 +104,23 @@ function hashFor(snapshot: TemplateSnapshot, fields: Field[], values: Record<str
     date && dateField ? { ...values, [dateField.id]: date.iso } : values,
   );
 
-  const translations = structuredClone(snapshot.translations);
+  const translations = resolveTranslations(snapshot, fields, form.translations);
   if (date) applyTargets(config, translations, dateTargets(date));
   if (deadline) applyTargets(config, translations, rsvpDeadlineTargets(deadline));
 
   // Preview-only: no music loop or WhatsApp popups while typing.
-  for (const key of ["music", "rsvp", "localization"]) {
+  for (const key of ["music", "rsvp"]) {
     config[key] = { ...(config[key] as object), enabled: false };
   }
+  // The toggle drives the preview's language switch instead: off hides it and pins English.
+  if (config["localization"]) {
+    config["localization"] = { ...(config["localization"] as object), enabled: bilingual };
+  }
+  // Bangla off: send the empty tree publish would send, so the preview cannot show it.
+  if (!bilingual && translations["bn"]) translations["bn"] = {};
 
   // Send the template's own copy for every locale untouched. The hook replaces each
-  // locale wholesale, so sending nothing would keep it too — but the editor must know
-  // that copy once WT-14c adds Bangla inputs.
+  // locale wholesale, so sending nothing would keep it too.
   const payload = Object.keys(translations).length ? { config, translations } : { config };
   return `#cfg=${encodeURIComponent(JSON.stringify(payload))}`;
 }
@@ -117,12 +143,19 @@ function CreatePage() {
 
 function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
   const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
-  const [form, setForm] = useState<FormState>(() => ({
-    values: seedValues(snapshot, fields),
-    touched: new Set<string>(),
-  }));
+  const toggle = useMemo(() => toggleField(snapshot), [snapshot]);
+  const [bilingual, setBilingual] = useState(() => banglaEnabled(snapshot));
+  const seed = useMemo<FormState>(
+    () => ({
+      values: seedValues(snapshot, fields),
+      translations: seedTranslations(snapshot, fields),
+      touched: new Set<string>(),
+    }),
+    [snapshot, fields],
+  );
+  const [form, setForm] = useState(seed);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  const [hash, setHash] = useState(() => hashFor(snapshot, fields, seedValues(snapshot, fields)));
+  const [hash, setHash] = useState(() => hashFor(snapshot, fields, seed, bilingual));
   // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
   // set but never remounts (the first effect run) cannot hide or strand the overlay.
   const [loadedHash, setLoadedHash] = useState<string>();
@@ -135,28 +168,34 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   // Debounced so the iframe remounts once after a burst of typing, not on every key.
   useEffect(() => {
-    const timer = setTimeout(() => setHash(hashFor(snapshot, fields, form.values)), 400);
+    const timer = setTimeout(() => setHash(hashFor(snapshot, fields, form, bilingual)), 400);
     return () => clearTimeout(timer);
-  }, [snapshot, fields, form.values]);
+  }, [snapshot, fields, form, bilingual]);
 
-  const update = (field: Field, raw: string) => {
-    setForm((prev) => nextForm(snapshot, fields, prev, field, raw));
+  const update = (field: Field, raw: string, bn = false) => {
+    setForm((prev) => nextForm(snapshot, fields, prev, field, raw, bn));
     // Once a field shows an error, validate while it is fixed instead of waiting for blur.
-    if (errors[field.id] !== undefined) {
+    const key = bn ? `${field.id}:bn` : field.id;
+    if (errors[key] !== undefined) {
       setErrors((prev) => ({
         ...prev,
-        [field.id]: validateField(field, normaliseValue(field, raw)),
+        [key]: validateField(field, bn ? raw : normaliseValue(field, raw)),
       }));
     }
   };
 
-  const blur = (field: Field) => {
-    const current = form.values[field.id] ?? "";
-    const value = field.derived === "initials" ? normaliseMonogram(current) : current;
+  const blur = (field: Field, bn = false) => {
+    const key = bn ? `${field.id}:bn` : field.id;
+    const current = (bn ? form.translations[field.id] : form.values[field.id]) ?? "";
+    const value = !bn && field.derived === "initials" ? normaliseMonogram(current) : current;
     if (value !== current) {
-      setForm((prev) => ({ ...prev, values: { ...prev.values, [field.id]: value } }));
+      setForm((prev) =>
+        bn
+          ? { ...prev, translations: { ...prev.translations, [field.id]: value } }
+          : { ...prev, values: { ...prev.values, [field.id]: value } },
+      );
     }
-    setErrors((prev) => ({ ...prev, [field.id]: validateField(field, value) }));
+    setErrors((prev) => ({ ...prev, [key]: validateField(field, value) }));
   };
 
   return (
@@ -192,8 +231,12 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
           <FormSections
             fields={fields}
             values={form.values}
+            translations={form.translations}
             errors={errors}
-            onChange={update}
+            bilingual={bilingual}
+            onBilingualChange={setBilingual}
+            toggleField={toggle}
+            onEdit={update}
             onBlur={blur}
           />
         </aside>

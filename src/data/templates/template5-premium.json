@@ -113,6 +113,7 @@
       "bilingual": true,
       "id": "partner1Name",
       "label": "Partner 1 name",
+      "labelBn": "১ম সাথীর নাম",
       "path": [
         "couple",
         "name1"
@@ -125,6 +126,7 @@
       "bilingual": true,
       "id": "partner2Name",
       "label": "Partner 2 name",
+      "labelBn": "২য় সাথীর নাম",
       "path": [
         "couple",
         "name2"
@@ -137,6 +139,7 @@
       "bilingual": true,
       "id": "familyLine1",
       "label": "Bride's family line",
+      "labelBn": "কনের পারিবারিক পরিচয়",
       "path": [
         "welcome",
         "parents1"
@@ -149,6 +152,7 @@
       "bilingual": true,
       "id": "familyLine2",
       "label": "Groom's family line",
+      "labelBn": "বরের পারিবারিক পরিচয়",
       "path": [
         "welcome",
         "parents2"
@@ -161,6 +165,7 @@
       "bilingual": true,
       "id": "venueName",
       "label": "Venue name",
+      "labelBn": "স্থানের নাম",
       "path": [
         "venue",
         "name"
@@ -173,6 +178,7 @@
       "bilingual": true,
       "id": "venueAddress",
       "label": "Address",
+      "labelBn": "ঠিকানা",
       "path": [
         "venue",
         "address"
