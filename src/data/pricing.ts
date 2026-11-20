@@ -1,4 +1,4 @@
-import type { Tier } from "./templates";
+import type { Tier } from "./template-list";
 
 export const currency = { code: "BDT", symbol: "৳" };
 

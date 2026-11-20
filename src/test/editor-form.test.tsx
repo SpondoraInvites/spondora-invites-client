@@ -1,15 +1,32 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { QueryClient } from "@tanstack/react-query";
+import { createMemoryHistory, createRouter, RouterContextProvider } from "@tanstack/react-router";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import { routeTree } from "@/routeTree.gen";
 import { FieldRow } from "@/components/editor/FieldRow";
 import { FormSections } from "@/components/editor/FormSections";
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import type { Field } from "@/lib/canonical-fields";
 import { seedTranslations, seedValues } from "@/lib/editor-form";
 import { Editor } from "@/routes/create.$templateSlug";
 import { scalarFields, type TemplateSnapshot } from "@/lib/fields";
 
 const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
+// The shell's "Back" is a <Link>, so the editor needs a router in context.
+const router = createRouter({
+  routeTree,
+  context: { queryClient: new QueryClient() },
+  history: createMemoryHistory(),
+});
+
+function renderEditor(snapshot: TemplateSnapshot) {
+  return render(
+    <RouterContextProvider router={router}>
+      <Editor snapshot={snapshot} />
+    </RouterContextProvider>,
+  );
+}
 const noop = () => {};
 const toggleField = base.fields.find((field) => field.type === "toggle");
 
@@ -311,7 +328,7 @@ describe("the missing-answer count", () => {
   }
 
   it("counts a required Bangla answer that is empty although the English is filled", () => {
-    render(<Editor snapshot={base} />);
+    renderEditor(base);
 
     expect(screen.getByLabelText("Venue name")).toHaveValue("Lakeshore Grand Ballroom");
     expect(count()).toBeNull();
@@ -323,7 +340,7 @@ describe("the missing-answer count", () => {
   });
 
   it("rises when a blank event is added and falls as the event is filled", () => {
-    render(<Editor snapshot={base} />);
+    renderEditor(base);
     expect(count()).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Add event" }));
@@ -338,5 +355,68 @@ describe("the missing-answer count", () => {
     }
 
     expect(count()).toBeNull();
+  });
+});
+
+describe("the editor shell", () => {
+  function frame(): Element {
+    return document.querySelector("iframe")!.parentElement!;
+  }
+
+  it("opens on the phone preview and widens it on demand", () => {
+    renderEditor(base);
+
+    const phone = screen.getByRole("button", { name: "Phone" });
+    expect(phone).toHaveAttribute("aria-pressed", "true");
+    expect(frame().className).toContain("max-w-[420px]");
+
+    fireEvent.click(screen.getByRole("button", { name: "Desktop" }));
+
+    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().className).not.toContain("max-w-[420px]");
+    // Only the width changes: the frame keeps the height its cover needs.
+    expect(frame().className).toContain("clamp(900px,82vh,1150px)");
+  });
+
+  it("says which origin failed instead of loading forever", () => {
+    vi.useFakeTimers();
+    renderEditor(base);
+
+    // A hung origin never fires `load`, so the pane gives up after its timeout.
+    act(() => vi.advanceTimersByTime(15_000));
+
+    expect(screen.getByText(/Could not load https:\/\/template5-premium.pages.dev/)).toBeVisible();
+    expect(screen.queryByText("Loading invitation…")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("catches an origin that is down even though the frame fires load", async () => {
+    const probe = vi.fn(() => Promise.reject(new Error("down")));
+    vi.stubGlobal("fetch", probe);
+    renderEditor(base);
+
+    // A dead server only shows the browser's error page, which still fires `load`.
+    fireEvent.load(document.querySelector("iframe")!);
+
+    expect(
+      await screen.findByText(/Could not load https:\/\/template5-premium.pages.dev/),
+    ).toBeVisible();
+    expect(probe).toHaveBeenCalledWith(
+      "https://template5-premium.pages.dev",
+      expect.objectContaining({ mode: "no-cors" }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("leaves Publish disabled until it is wired", () => {
+    renderEditor(base);
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+  });
+
+  it("says so when a design has no fields", () => {
+    renderEditor({ ...base, fields: [] });
+
+    expect(screen.getByText("This design has nothing to fill in yet.")).toBeVisible();
   });
 });

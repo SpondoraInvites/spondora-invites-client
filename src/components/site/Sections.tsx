@@ -3,7 +3,7 @@ import { Check, Minus, Heart, Smartphone, Link2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { templates, tierLabel, type Tier } from "@/data/templates";
+import { templates, tierLabel, type Tier } from "@/data/template-list";
 import { tiers, comparison, addOns, formatPrice } from "@/data/pricing";
 import { site, steps, needFromYou, faqs, whatsappLink, orderMessage } from "@/data/site";
 

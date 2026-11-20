@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, it } from "vitest";
-import { getTemplate, templates } from "@/data/templates";
+import { getTemplate, templates } from "@/data/template-list";
 
 it("uses the custom domain for template 1 Luxury", () => {
   expect(getTemplate("template1-luxury")?.previewUrl).toBe(

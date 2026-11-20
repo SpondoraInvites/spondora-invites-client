@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 
 describe("template5-premium snapshot", () => {
   const snapshot = TEMPLATE_SNAPSHOTS["template5-premium"]!;

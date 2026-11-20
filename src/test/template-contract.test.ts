@@ -3,8 +3,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { templates } from "@/data/templates";
-import { TEMPLATE_SNAPSHOTS, TEMPLATE_SLUGS } from "@/data/templates/index";
+import { templates } from "@/data/template-list";
+import { TEMPLATE_SNAPSHOTS, TEMPLATE_SLUGS } from "@/data/templates";
 import { CANONICAL_FIELDS } from "@/lib/canonical-fields";
 
 // Vitest runs from the repo root, so `..` is the folder holding the template repos.
@@ -84,7 +84,7 @@ describe("snapshot coverage", () => {
     const listed = new Set(templates.map((template) => template.slug));
 
     for (const slug of TEMPLATE_SLUGS) {
-      expect(listed.has(slug), `${slug} is not listed in src/data/templates.ts`).toBe(true);
+      expect(listed.has(slug), `${slug} is not listed in src/data/template-list.ts`).toBe(true);
     }
     expect(Object.keys(TEMPLATE_SNAPSHOTS).sort()).toEqual([...TEMPLATE_SLUGS].sort());
   });
