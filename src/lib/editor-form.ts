@@ -11,12 +11,13 @@ import {
   bilingualFields,
   readPath,
   readValue,
+  type EventItem,
   type TemplateSnapshot,
 } from "@/lib/fields";
 import { normaliseValue } from "@/lib/field-schema";
 
 /** A field's value: text, the localization toggle, or an events group (WT-17). */
-export type FormValue = string | boolean | Record<string, string>[];
+export type FormValue = string | boolean | EventItem[];
 
 export interface FormState {
   values: Record<string, FormValue>;
@@ -28,9 +29,44 @@ export interface FormState {
 /** The couple's names drive the derived fields, wherever their paths landed. */
 const NAME_PATHS = ["couple.name1", "couple.name2"];
 
+/** One event from the template's config and bn tree: English at the root, Bangla in `bn`. */
+function seedEventItems(snapshot: TemplateSnapshot, field: Field): EventItem[] {
+  const english = readValue(snapshot.defaults, field.path);
+  const bn = banglaTree(snapshot.translations);
+  const bangla = bn ? readValue(bn, field.path) : undefined;
+  const items = Array.isArray(english) ? (english as Record<string, unknown>[]) : [];
+  const bnItems = Array.isArray(bangla) ? (bangla as Record<string, unknown>[]) : [];
+
+  return items.map((item, index) => {
+    const value: EventItem = {};
+    for (const itemField of field.itemFields ?? []) {
+      if (itemField.type === "datetime") {
+        // The input is local wall-clock time; the template stores the cal* parts apart.
+        const date = readPath(item, ["calDate"]);
+        const time = readPath(item, itemField.path);
+        value[itemField.id] =
+          /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}$/.test(time) ? `${date}T${time}` : "";
+        continue;
+      }
+      value[itemField.id] = readPath(item, itemField.path);
+    }
+
+    if (bn) {
+      const bnValue: Record<string, string> = {};
+      for (const itemField of field.itemFields ?? []) {
+        if (itemField.bilingual)
+          bnValue[itemField.id] = readPath(bnItems[index] ?? {}, itemField.path);
+      }
+      value.bn = bnValue;
+    }
+    return value;
+  });
+}
+
 export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<string, FormValue> {
   return Object.fromEntries(
     fields.map((field) => {
+      if (field.type === "group") return [field.id, seedEventItems(snapshot, field)];
       const value = readPath(snapshot.defaults, field.path);
       // The toggle is the draft's only boolean: anything but an explicit `false` is on.
       if (field.type === "toggle")
@@ -59,7 +95,9 @@ export function seedTranslations(
   const bn = banglaTree(snapshot.translations);
   if (!bn) return {};
   return Object.fromEntries(
-    bilingualFields(snapshot, fields).map((field) => [field.id, readPath(bn, field.path)]),
+    bilingualFields(snapshot, fields)
+      .filter((field) => field.type !== "group")
+      .map((field) => [field.id, readPath(bn, field.path)]),
   );
 }
 
