@@ -31,8 +31,10 @@ function renderForm(
       bilingual={options.bilingual ?? true}
       onBilingualChange={noop}
       toggleField={snapshot.fields.find((field) => field.type === "toggle")}
+      touched={new Set()}
       onEdit={noop}
       onBlur={noop}
+      onGroupChange={noop}
     />,
   );
 }
@@ -146,8 +148,10 @@ describe("bilingual inputs", () => {
         bilingual={bilingual}
         onBilingualChange={noop}
         toggleField={toggleField}
+        touched={new Set()}
         onEdit={noop}
         onBlur={noop}
+        onGroupChange={noop}
       />
     );
 
@@ -196,8 +200,10 @@ describe("bilingual inputs", () => {
         bilingual
         onBilingualChange={noop}
         toggleField={toggleField}
+        touched={new Set()}
         onEdit={noop}
         onBlur={noop}
+        onGroupChange={noop}
       />,
     );
 

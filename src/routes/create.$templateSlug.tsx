@@ -288,15 +288,17 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
           </div>
           {ready ? (
             <FormSections
-              fields={fields}
+              fields={editorFields}
               values={form.values}
               translations={form.translations}
               errors={errors}
               bilingual={bilingual}
               onBilingualChange={setBilingual}
               toggleField={toggle}
+              touched={form.touched}
               onEdit={update}
               onBlur={blur}
+              onGroupChange={setForm}
             />
           ) : (
             <p className="text-sm text-muted-foreground">Loading your draft…</p>
