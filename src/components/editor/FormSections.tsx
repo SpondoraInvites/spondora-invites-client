@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 
 import type { Field } from "@/lib/canonical-fields";
-import type { FormState, FormValue } from "@/lib/editor-form";
+import { sectionGroups, type FormState, type FormValue } from "@/lib/editor-form";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -16,6 +16,7 @@ interface FormSectionsProps {
   values: Record<string, FormValue>;
   /** Bangla values, keyed by field id. A field is bilingual exactly when it has a key here. */
   translations: Record<string, string>;
+  /** The messages to show, already gated on whether the input was left (WT-17d). */
   errors: Record<string, string | undefined>;
   /** The localization toggle is on: Bangla is collected (WT-14c §4). */
   bilingual: boolean;
@@ -49,16 +50,7 @@ export function FormSections({
   const toggleLabelId = useId();
   const filterId = useId();
 
-  const sections = new Map<string, Field[]>();
-  for (const field of fields) {
-    const section = field.section ?? "Details";
-    sections.set(section, [...(sections.get(section) ?? []), field]);
-  }
-
   const hasBangla = Object.keys(translations).length > 0;
-  const missing = fields.filter(
-    (field) => field.id in translations && field.required && !(translations[field.id] ?? "").trim(),
-  ).length;
 
   return (
     <div className="space-y-7">
@@ -89,16 +81,13 @@ export function FormSections({
             <ToggleGroupItem value="en">English</ToggleGroupItem>
             <ToggleGroupItem value="bn" lang="bn">
               বাংলা
-              {missing > 0 && (
-                <span className="text-xs text-muted-foreground">{missing} missing</span>
-              )}
             </ToggleGroupItem>
             <ToggleGroupItem value="both">Both</ToggleGroupItem>
           </ToggleGroup>
         </div>
       )}
 
-      {[...sections].map(([section, sectionFields]) => (
+      {sectionGroups(fields).map(([section, sectionFields]) => (
         <section key={section} className="space-y-4">
           <h2 className="eyebrow text-primary">{section}</h2>
           {sectionFields.map((field) => {
@@ -112,6 +101,8 @@ export function FormSections({
                   values={values}
                   translations={translations}
                   touched={touched}
+                  errors={errors}
+                  bilingual={bilingual}
                   language={language}
                   onChange={onGroupChange}
                 />

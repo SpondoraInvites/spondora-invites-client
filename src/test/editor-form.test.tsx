@@ -6,6 +6,7 @@ import { FormSections } from "@/components/editor/FormSections";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
 import type { Field } from "@/lib/canonical-fields";
 import { seedTranslations, seedValues } from "@/lib/editor-form";
+import { Editor } from "@/routes/create.$templateSlug";
 import { scalarFields, type TemplateSnapshot } from "@/lib/fields";
 
 const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
@@ -189,28 +190,6 @@ describe("bilingual inputs", () => {
     expect(screen.queryByText(/১ম সাথীর নাম/)).toBeNull();
   });
 
-  it("counts a field whose Bangla is empty although the English is filled", () => {
-    // `missing` is what the publish gate will read: English alone is not enough.
-    render(
-      <FormSections
-        fields={fields}
-        values={seedValues(base, fields)}
-        translations={{ ...seedTranslations(base, fields), venueName: "", venueAddress: " " }}
-        errors={{}}
-        bilingual
-        onBilingualChange={noop}
-        toggleField={toggleField}
-        touched={new Set()}
-        onEdit={noop}
-        onBlur={noop}
-        onGroupChange={noop}
-      />,
-    );
-
-    expect(screen.getByLabelText("Venue name")).toHaveValue("Lakeshore Grand Ballroom");
-    expect(screen.getByText("2 missing")).toBeInTheDocument();
-  });
-
   it("keeps both values and the pair label when the filter switches", () => {
     renderForm(base, fields);
     const english = () => screen.getByLabelText("Partner 1 name") as HTMLInputElement;
@@ -323,5 +302,41 @@ describe("FieldRow", () => {
     );
 
     expect(document.getElementById("partner1Name-bn")).toHaveAccessibleName("Partner 1 name");
+  });
+});
+
+describe("the missing-answer count", () => {
+  function count(): HTMLElement | null {
+    return screen.queryByRole("status");
+  }
+
+  it("counts a required Bangla answer that is empty although the English is filled", () => {
+    render(<Editor snapshot={base} />);
+
+    expect(screen.getByLabelText("Venue name")).toHaveValue("Lakeshore Grand Ballroom");
+    expect(count()).toBeNull();
+
+    fireEvent.change(document.getElementById("venueName-bn")!, { target: { value: "" } });
+    fireEvent.change(document.getElementById("venueAddress-bn")!, { target: { value: " " } });
+
+    expect(count()).toHaveTextContent("2 missing");
+  });
+
+  it("rises when a blank event is added and falls as the event is filled", () => {
+    render(<Editor snapshot={base} />);
+    expect(count()).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add event" }));
+
+    // A new card's tag and name are blank in both languages.
+    expect(count()).toHaveTextContent("4 missing");
+
+    for (const id of ["tag", "tag-bn", "name", "name-bn"]) {
+      fireEvent.change(document.getElementById(`events-1-${id}`)!, {
+        target: { value: "Mehendi" },
+      });
+    }
+
+    expect(count()).toBeNull();
   });
 });
