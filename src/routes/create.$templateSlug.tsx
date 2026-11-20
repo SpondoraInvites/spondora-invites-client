@@ -32,8 +32,16 @@ import {
   type DateTimeContext,
   type DerivedTargets,
 } from "@/lib/derive";
-import { nextForm, seedTranslations, seedValues, type FormState } from "@/lib/editor-form";
-import { normaliseMonogram, normaliseValue, validateField } from "@/lib/field-schema";
+import {
+  formErrors,
+  markVisited,
+  missingAnswers,
+  nextForm,
+  seedTranslations,
+  seedValues,
+  type FormState,
+} from "@/lib/editor-form";
+import { normaliseMonogram } from "@/lib/field-schema";
 import {
   readPath,
   resolveConfig,
@@ -157,7 +165,7 @@ function CreatePage() {
   return <Editor key={snapshot.manifest.slug} snapshot={snapshot} />;
 }
 
-function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
+export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
   const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
   const editorFields = useMemo(
     () => [...fields, ...snapshot.fields.filter((field) => field.type === "group")],
@@ -178,7 +186,20 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
   // Bangla is collected unless the template's own config says otherwise. A template with
   // no toggle at all publishes English only.
   const bilingual = toggle ? form.values[toggle.id] === true : false;
-  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const allErrors = useMemo(
+    () => formErrors(editorFields, form, bilingual),
+    [editorFields, form, bilingual],
+  );
+  // A message shows only once its own input has been left (WT-14a's rule, form-wide).
+  const errors = useMemo(() => {
+    const visited = form.visited;
+    if (!visited?.size) return {};
+    return Object.fromEntries(Object.entries(allErrors).filter(([key]) => visited.has(key)));
+  }, [allErrors, form.visited]);
+  const missing = useMemo(
+    () => missingAnswers(editorFields, form, bilingual),
+    [editorFields, form, bilingual],
+  );
   const [hash, setHash] = useState(() => hashFor(snapshot, editorFields, seed, bilingual));
   // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
   // set but never remounts (the first effect run) cannot hide or strand the overlay.
@@ -198,14 +219,6 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   const update = (field: Field, raw: string, bn = false) => {
     setForm((prev) => nextForm(snapshot, fields, prev, field, raw, bn));
-    // Once a field shows an error, validate while it is fixed instead of waiting for blur.
-    const key = bn ? `${field.id}:bn` : field.id;
-    if (errors[key] !== undefined) {
-      setErrors((prev) => ({
-        ...prev,
-        [key]: validateField(field, bn ? raw : normaliseValue(field, raw)),
-      }));
-    }
   };
 
   const blur = (field: Field, bn = false) => {
@@ -213,14 +226,15 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
     const raw = bn ? form.translations[field.id] : form.values[field.id];
     const current = typeof raw === "string" ? raw : "";
     const value = !bn && field.derived === "initials" ? normaliseMonogram(current) : current;
-    if (value !== current) {
-      setForm((prev) =>
-        bn
-          ? { ...prev, translations: { ...prev.translations, [field.id]: value } }
-          : { ...prev, values: { ...prev.values, [field.id]: value } },
-      );
-    }
-    setErrors((prev) => ({ ...prev, [key]: validateField(field, value) }));
+    setForm((prev) => {
+      const trimmed =
+        value === current
+          ? prev
+          : bn
+            ? { ...prev, translations: { ...prev.translations, [field.id]: value } }
+            : { ...prev, values: { ...prev.values, [field.id]: value } };
+      return markVisited(trimmed, key);
+    });
   };
 
   const setBilingual = (on: boolean) => {
@@ -262,9 +276,16 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
             </p>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground" aria-live="polite">
-              {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "\u00a0"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "\u00a0"}
+              </span>
+              {missing.count > 0 && (
+                <span role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                  {missing.count} missing
+                </span>
+              )}
+            </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm">

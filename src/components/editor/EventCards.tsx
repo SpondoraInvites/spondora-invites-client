@@ -28,6 +28,7 @@ import type { Field } from "@/lib/canonical-fields";
 import {
   addEvent,
   editEventItem,
+  markVisited,
   moveEvent,
   removeEvent,
   setEventInherits,
@@ -45,11 +46,13 @@ interface EventCardsProps {
   translations: Record<string, string>;
   /** `events.<index>.<itemId>` marks a field that no longer follows the primary. */
   touched: ReadonlySet<string>;
+  /** The gated messages, keyed the way the form stores interaction state (WT-17d). */
+  errors: Record<string, string | undefined>;
+  /** The localization toggle is on, so the Bangla inputs (and their messages) render. */
+  bilingual: boolean;
   language: Language;
   onChange: (update: (state: FormState) => FormState) => void;
 }
-
-const noop = () => {};
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -61,6 +64,8 @@ export function EventCards({
   values,
   translations,
   touched,
+  errors,
+  bilingual,
   language,
   onChange,
 }: EventCardsProps) {
@@ -188,24 +193,26 @@ export function EventCards({
                     <FieldRow
                       field={itemField}
                       value={text(item[itemField.id])}
+                      error={errors[key]}
                       onChange={(_, raw) =>
                         onChange((state) => editEventItem(state, field, index, itemField, raw))
                       }
-                      onBlur={noop}
+                      onBlur={() => onChange((state) => markVisited(state, key))}
                       language={language}
                       disabled={inherited}
                       placeholder={inherited ? primaryEnglish : undefined}
                       idPrefix={`${field.id}-${index}-${itemField.id}`}
                       bn={
-                        itemField.bilingual
+                        itemField.bilingual && bilingual
                           ? {
                               value: bangla ?? "",
+                              error: errors[`${key}:bn`],
                               placeholder: inherited ? primaryBangla : undefined,
                               onChange: (_, raw) =>
                                 onChange((state) =>
                                   editEventItem(state, field, index, itemField, raw, true),
                                 ),
-                              onBlur: noop,
+                              onBlur: () => onChange((state) => markVisited(state, `${key}:bn`)),
                             }
                           : undefined
                       }

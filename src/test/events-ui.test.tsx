@@ -8,6 +8,7 @@ import type { Field } from "@/lib/canonical-fields";
 import {
   addEvent,
   editEventItem,
+  formErrors,
   moveEvent,
   removeEvent,
   seedTranslations,
@@ -74,6 +75,12 @@ function Harness({ snapshot }: { snapshot: TemplateSnapshot }) {
     const translations = seedTranslations(snapshot, fields);
     return { values, translations, touched: seedTouched(snapshot, fields, values, translations) };
   });
+  const [bilingual, setBilingual] = useState(true);
+  // The route's gate: a message shows once its own input has been left (WT-17d).
+  const allErrors = formErrors(fields, form, bilingual);
+  const errors = Object.fromEntries(
+    Object.entries(allErrors).filter(([key]) => form.visited?.has(key)),
+  );
 
   return (
     <>
@@ -81,9 +88,9 @@ function Harness({ snapshot }: { snapshot: TemplateSnapshot }) {
         fields={fields}
         values={form.values}
         translations={form.translations}
-        errors={{}}
-        bilingual
-        onBilingualChange={noop}
+        errors={errors}
+        bilingual={bilingual}
+        onBilingualChange={setBilingual}
         toggleField={snapshot.fields.find((field) => field.type === "toggle")}
         touched={form.touched}
         onEdit={noop}
@@ -313,5 +320,93 @@ describe("the events form state", () => {
 
     expect(eventsOf(removed)).toHaveLength(1);
     expect(resolvedEvents(removed)).toHaveLength(1);
+  });
+});
+
+describe("event item messages", () => {
+  /** template5's event items are all optional once made their own, so one is marked required. */
+  const requiredVenue: TemplateSnapshot = {
+    ...base,
+    fields: base.fields.map((field) =>
+      field.type === "group"
+        ? {
+            ...field,
+            itemFields: field.itemFields!.map((item) =>
+              item.id === "venueName" ? { ...item, required: true } : item,
+            ),
+          }
+        : field,
+    ),
+  };
+
+  const messageAt = (index: number, id: string, bn = false) =>
+    document.getElementById(`events-${index}-${id}${bn ? "-bn" : ""}-error`);
+
+  it("says what is required under a blank event name, and only after it is left", () => {
+    render(<Harness snapshot={base} />);
+    const name = () => itemInput(0, "name");
+
+    fireEvent.change(name(), { target: { value: "" } });
+    expect(name()).not.toHaveAttribute("aria-invalid", "true");
+    expect(messageAt(0, "name")).toBeNull();
+
+    fireEvent.blur(name());
+    expect(messageAt(0, "name")).toHaveTextContent("This is required.");
+    expect(name()).toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.change(name(), { target: { value: "Wedding" } });
+    expect(messageAt(0, "name")).toBeNull();
+  });
+
+  it("shows the message only on the card that was left", () => {
+    render(<Harness snapshot={base} />);
+    fireEvent.click(addButton());
+
+    fireEvent.blur(itemInput(1, "name"));
+
+    expect(messageAt(0, "name")).toBeNull();
+    expect(messageAt(1, "name")).toHaveTextContent("This is required.");
+    // The blank tag on the same card has not been left yet.
+    expect(screen.getAllByText("This is required.")).toHaveLength(1);
+  });
+
+  it("stays quiet on an inherited venue, and clears again when the event follows the primary", () => {
+    render(<Harness snapshot={requiredVenue} />);
+    const venue = () => itemInput(0, "venueName");
+    const inherit = () => document.getElementById("events-0-venueName-inherit")!;
+
+    expect(venue()).toBeDisabled();
+    expect(messageAt(0, "venueName")).toBeNull();
+
+    fireEvent.click(inherit());
+    // Ticking copies the primary's venue in, so it is not blank yet.
+    expect(venue()).toHaveValue("Lakeshore Grand Ballroom");
+
+    fireEvent.change(venue(), { target: { value: "" } });
+    fireEvent.blur(venue());
+    expect(messageAt(0, "venueName")).toHaveTextContent("This is required.");
+
+    fireEvent.click(inherit());
+    expect(venue()).toBeDisabled();
+    expect(messageAt(0, "venueName")).toBeNull();
+  });
+
+  it("shows the Bangla message while the toggle is on and takes it away with the input", () => {
+    render(<Harness snapshot={base} />);
+    const tag = () => itemInput(0, "tag", true);
+
+    fireEvent.change(tag(), { target: { value: "" } });
+    fireEvent.blur(tag());
+    expect(messageAt(0, "tag", true)).toHaveTextContent("This is required.");
+    expect(itemInput(0, "tag")).not.toHaveAttribute("aria-invalid", "true");
+
+    const toggle = () => screen.getByRole("switch", { name: "Publish the Bangla version" });
+    fireEvent.click(toggle());
+    expect(tag()).toBeNull();
+    expect(messageAt(0, "tag", true)).toBeNull();
+
+    fireEvent.click(toggle());
+    expect(tag()).not.toBeNull();
+    expect(messageAt(0, "tag", true)).toHaveTextContent("This is required.");
   });
 });
