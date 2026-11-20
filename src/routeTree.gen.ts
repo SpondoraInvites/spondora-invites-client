@@ -10,14 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreateRouteImport } from './routes/create'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as CreateTemplateSlugRouteImport } from './routes/create.$templateSlug'
 import { Route as PreviewSlugRouteImport } from './routes/preview.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -35,6 +42,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreateTemplateSlugRoute = CreateTemplateSlugRouteImport.update({
+  id: '/$templateSlug',
+  path: '/$templateSlug',
+  getParentRoute: () => CreateRoute,
+} as any)
 const PreviewSlugRoute = PreviewSlugRouteImport.update({
   id: '/preview/$slug',
   path: '/preview/$slug',
@@ -43,42 +55,65 @@ const PreviewSlugRoute = PreviewSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create': typeof CreateRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/terms': typeof TermsRoute
+  '/create/$templateSlug': typeof CreateTemplateSlugRoute
   '/preview/$slug': typeof PreviewSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create': typeof CreateRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/terms': typeof TermsRoute
+  '/create/$templateSlug': typeof CreateTemplateSlugRoute
   '/preview/$slug': typeof PreviewSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create': typeof CreateRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/terms': typeof TermsRoute
+  '/create/$templateSlug': typeof CreateTemplateSlugRoute
   '/preview/$slug': typeof PreviewSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/privacy' | '/refund-policy' | '/terms' | '/preview/$slug'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/privacy' | '/refund-policy' | '/terms' | '/preview/$slug'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
+    | '/create'
     | '/privacy'
     | '/refund-policy'
     | '/terms'
+    | '/create/$templateSlug'
+    | '/preview/$slug'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/create'
+    | '/privacy'
+    | '/refund-policy'
+    | '/terms'
+    | '/create/$templateSlug'
+    | '/preview/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/create'
+    | '/privacy'
+    | '/refund-policy'
+    | '/terms'
+    | '/create/$templateSlug'
     | '/preview/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreateRoute: typeof CreateRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   TermsRoute: typeof TermsRoute
@@ -92,6 +127,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -115,6 +157,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/create/$templateSlug': {
+      id: '/create/$templateSlug'
+      path: '/$templateSlug'
+      fullPath: '/create/$templateSlug'
+      preLoaderRoute: typeof CreateTemplateSlugRouteImport
+      parentRoute: typeof CreateRoute
+    }
     '/preview/$slug': {
       id: '/preview/$slug'
       path: '/preview/$slug'
@@ -125,8 +174,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CreateRouteChildren {
+  CreateTemplateSlugRoute: typeof CreateTemplateSlugRoute
+}
+
+const CreateRouteChildren: CreateRouteChildren = {
+  CreateTemplateSlugRoute: CreateTemplateSlugRoute,
+}
+
+const CreateRouteWithChildren =
+  CreateRoute._addFileChildren(CreateRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateRoute: CreateRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   TermsRoute: TermsRoute,

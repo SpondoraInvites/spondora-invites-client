@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { getTemplate, templates } from "@/data/templates";
+import { getTemplate, templates } from "@/data/template-list";
 import { PreviewFrame } from "@/components/site/PreviewFrame";
 
 export const Route = createFileRoute("/preview/$slug")({
