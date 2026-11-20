@@ -13,6 +13,8 @@ export type Language = "en" | "bn" | "both";
 interface BnInput {
   value: string;
   error?: string | undefined;
+  /** The primary event's Bangla, shown while this item inherits it (WT-17b). */
+  placeholder?: string | undefined;
   onChange: (field: Field, value: string) => void;
   onBlur: (field: Field) => void;
 }
@@ -26,6 +28,12 @@ interface FieldRowProps {
   /** Present only for a bilingual field whose Bangla path the snapshot carries (WT-14c). */
   bn?: BnInput | undefined;
   language?: Language;
+  /** An inherited event field: shown but not editable until "different" is checked. */
+  disabled?: boolean;
+  /** The primary event's value, shown while this one follows it. */
+  placeholder?: string | undefined;
+  /** Namespaces the Bangla input's id: one event card holds the same field ids again. */
+  idPrefix?: string | undefined;
 }
 
 interface InputBlockProps {
@@ -37,6 +45,8 @@ interface InputBlockProps {
   hint?: string | undefined;
   warning?: string | undefined;
   maxLength?: number | undefined;
+  disabled?: boolean | undefined;
+  placeholder?: string | undefined;
   onChange: (field: Field, value: string) => void;
   onBlur: (field: Field) => void;
 }
@@ -58,6 +68,8 @@ function InputBlock({
   hint,
   warning,
   maxLength,
+  disabled,
+  placeholder,
   onChange,
   onBlur,
 }: InputBlockProps) {
@@ -71,6 +83,8 @@ function InputBlock({
   const shared = {
     id,
     value,
+    disabled,
+    placeholder,
     "aria-invalid": error ? true : undefined,
     "aria-describedby": describedBy,
     onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -120,8 +134,13 @@ export function FieldRow({
   onBlur,
   bn,
   language = "both",
+  disabled,
+  placeholder,
+  idPrefix,
 }: FieldRowProps) {
-  const enId = useId();
+  const generatedId = useId();
+  // A group repeats the same field ids, so the card hands in a namespaced prefix instead.
+  const enId = idPrefix ?? generatedId;
   const isMonogram = field.derived === "initials";
 
   // Soft, not an error: a long monogram still saves, it just gets cramped on the seal.
@@ -143,6 +162,8 @@ export function FieldRow({
           hint={field.hint}
           warning={warning}
           maxLength={isMonogram ? MONOGRAM_MAX : undefined}
+          disabled={disabled}
+          placeholder={placeholder}
           onChange={onChange}
           onBlur={onBlur}
         />
@@ -150,11 +171,13 @@ export function FieldRow({
       {bn && (
         <div lang="bn" hidden={language === "en"}>
           <InputBlock
-            id={`${field.id}-bn`}
+            id={`${idPrefix ?? field.id}-bn`}
             label={field.labelBn ?? field.label ?? field.id}
             field={field}
             value={bn.value}
             error={bn.error}
+            disabled={disabled}
+            placeholder={bn.placeholder}
             onChange={bn.onChange}
             onBlur={bn.onBlur}
           />

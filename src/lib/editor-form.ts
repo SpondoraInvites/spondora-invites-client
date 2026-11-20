@@ -9,6 +9,7 @@ import { deriveHashtag, deriveInitials, displayDateToIso, isoToLocal } from "@/l
 import {
   banglaTree,
   bilingualFields,
+  primaryFieldId,
   readPath,
   readValue,
   type EventItem,
@@ -139,4 +140,132 @@ export function nextForm(
   }
 
   return { ...prev, values, touched };
+}
+
+/** One group's items as the form holds them. */
+function eventItems(state: FormState, groupId: string): EventItem[] {
+  const value = state.values[groupId];
+  return Array.isArray(value) ? value : [];
+}
+
+function withEvents(
+  state: FormState,
+  groupId: string,
+  items: EventItem[],
+  touched: ReadonlySet<string> = state.touched,
+): FormState {
+  return {
+    ...state,
+    values: { ...state.values, [groupId]: items },
+    touched: new Set(touched),
+  };
+}
+
+/** Move the group's touch keys with its items, so a reordered event keeps its own date. */
+function remapTouched(
+  touched: ReadonlySet<string>,
+  groupId: string,
+  map: (index: number) => number | null,
+): Set<string> {
+  const next = new Set<string>();
+  for (const key of touched) {
+    const [group, index, ...rest] = key.split(".");
+    if (group !== groupId || rest.length === 0) {
+      next.add(key);
+      continue;
+    }
+    const moved = map(Number(index));
+    if (moved !== null) next.add([group, moved, ...rest].join("."));
+  }
+  return next;
+}
+
+/** One input of one event card. A Bangla edit stays inside the item's `bn` (WT-17a). */
+export function editEventItem(
+  state: FormState,
+  group: Field,
+  index: number,
+  itemField: Field,
+  raw: string,
+  bn = false,
+): FormState {
+  const items = eventItems(state, group.id).map((item, position) => {
+    if (position !== index) return item;
+    if (!bn) return { ...item, [itemField.id]: raw };
+    return { ...item, bn: { ...item.bn, [itemField.id]: raw } };
+  });
+  return withEvents(state, group.id, items);
+}
+
+/** "Different from the main event": checking copies the primary in and records the touch,
+ *  unchecking clears both languages so the event follows the primary again. */
+export function setEventInherits(
+  state: FormState,
+  group: Field,
+  index: number,
+  itemField: Field,
+  different: boolean,
+): FormState {
+  const primaryId = primaryFieldId(itemField.id);
+  const english = state.values[primaryId];
+  const bangla = state.translations[primaryId] ?? "";
+  const key = `${group.id}.${index}.${itemField.id}`;
+  const touched = new Set(state.touched);
+  if (different) touched.add(key);
+  else touched.delete(key);
+
+  const items = eventItems(state, group.id).map((item, position) => {
+    if (position !== index) return item;
+    const next: EventItem = {
+      ...item,
+      [itemField.id]: different && typeof english === "string" ? english : "",
+    };
+    if (itemField.bilingual) {
+      next.bn = { ...item.bn, [itemField.id]: different ? bangla : "" };
+    }
+    return next;
+  });
+  return withEvents(state, group.id, items, touched);
+}
+
+/** A new event starts blank in both languages; its date and venue stay inherited, and the
+ *  resolver keeps the unexposed template keys (`icon`, `calTz`). */
+export function addEvent(state: FormState, group: Field): FormState {
+  const items = eventItems(state, group.id);
+  if (items.length >= (group.max ?? Infinity)) return state;
+  return withEvents(state, group.id, [...items, { bn: {} }]);
+}
+
+/** The last card cannot be removed: every invite has at least one event. */
+export function removeEvent(state: FormState, group: Field, index: number): FormState {
+  const items = eventItems(state, group.id);
+  if (items.length <= Math.max(group.min ?? 0, 1)) return state;
+  const touched = remapTouched(state.touched, group.id, (position) =>
+    position === index ? null : position > index ? position - 1 : position,
+  );
+  return withEvents(
+    state,
+    group.id,
+    items.filter((_, position) => position !== index),
+    touched,
+  );
+}
+
+/** Up or down by one card. The ends are no-ops. */
+export function moveEvent(
+  state: FormState,
+  group: Field,
+  index: number,
+  offset: -1 | 1,
+): FormState {
+  const items = eventItems(state, group.id);
+  const target = index + offset;
+  if (target < 0 || target >= items.length) return state;
+  const next = [...items];
+  next[index] = items[target]!;
+  next[target] = items[index]!;
+  const touched = remapTouched(state.touched, group.id, (position) =>
+    position === index ? target : position === target ? index : position,
+  );
+  return withEvents(state, group.id, next, touched);
 }
