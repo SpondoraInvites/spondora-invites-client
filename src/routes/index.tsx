@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Hero, HowItWorks, Pricing, WhySpondora, Faq, Contact } from "@/components/site/Sections";
 import { Invites } from "@/components/site/Invites";
-import type { Tier } from "@/data/templates";
+import type { Tier } from "@/data/template-list";
 
 export const Route = createFileRoute("/")({
   head: () => ({

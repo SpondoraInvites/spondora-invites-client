@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import { draftKey, useDraft } from "@/hooks/use-draft";
 import { seedTranslations, seedValues, type FormState } from "@/lib/editor-form";
 import { scalarFields } from "@/lib/fields";

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { FormSections } from "@/components/editor/FormSections";
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import type { Field } from "@/lib/canonical-fields";
 import {
   addEvent,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import type { Field, FieldType } from "@/lib/canonical-fields";
 import {
   addEvent,

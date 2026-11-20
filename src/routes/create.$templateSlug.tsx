@@ -5,10 +5,12 @@
  * Values live in the draft and are written into the preview link's `#cfg=` hash.
  * The shell is WT-18.
  */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FormSections } from "@/components/editor/FormSections";
+import { DeviceToggle, PreviewPane, type Device } from "@/components/editor/PreviewPane";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import { useDraft } from "@/hooks/use-draft";
 import type { Field } from "@/lib/canonical-fields";
 import {
@@ -54,11 +56,31 @@ import {
 import { templateOrigin } from "@/lib/template-origins";
 
 export const Route = createFileRoute("/create/$templateSlug")({
+  loader: ({ params }) => {
+    const snapshot = TEMPLATE_SNAPSHOTS[params.templateSlug];
+    if (!snapshot) throw notFound();
+    return { snapshot };
+  },
   head: () => ({
     meta: [{ title: "Invite editor (preview) — Spondora" }, { name: "robots", content: "noindex" }],
   }),
+  notFoundComponent: MissingTemplate,
   component: CreatePage,
 });
+
+function MissingTemplate() {
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-24">
+      <h1 className="text-2xl font-semibold">This design isn't in the editor yet</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        The editor only knows the designs that have been migrated to it.
+      </p>
+      <Button asChild className="mt-6">
+        <Link to="/create">Back to the editor</Link>
+      </Button>
+    </main>
+  );
+}
 
 /** The template's own zone and offset, so a picked wall-clock time is never recalculated. */
 function dateContext(snapshot: TemplateSnapshot): DateTimeContext {
@@ -150,22 +172,12 @@ function hashFor(
 }
 
 function CreatePage() {
-  const { templateSlug } = Route.useParams();
-  const snapshot = TEMPLATE_SNAPSHOTS[templateSlug];
-  if (!snapshot) {
-    return (
-      <main className="mx-auto max-w-6xl px-4 py-24">
-        <h1 className="text-2xl font-semibold">No synced template named “{templateSlug}”</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Run <code>npm run sync:templates</code> to snapshot the templates this editor knows.
-        </p>
-      </main>
-    );
-  }
+  const { snapshot } = Route.useLoaderData();
   return <Editor key={snapshot.manifest.slug} snapshot={snapshot} />;
 }
 
 export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
+  const [device, setDevice] = useState<Device>("phone");
   const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
   const editorFields = useMemo(
     () => [...fields, ...snapshot.fields.filter((field) => field.type === "group")],
@@ -201,15 +213,6 @@ export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
     [editorFields, form, bilingual],
   );
   const [hash, setHash] = useState(() => hashFor(snapshot, editorFields, seed, bilingual));
-  // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
-  // set but never remounts (the first effect run) cannot hide or strand the overlay.
-  const [loadedHash, setLoadedHash] = useState<string>();
-  const loaded = loadedHash === hash;
-  const [hydrated, setHydrated] = useState(false);
-
-  // The iframe must start loading in the browser, never in the server HTML: if it finishes
-  // before hydration, `onLoad` fires with no handler and the loading overlay stays forever.
-  useEffect(() => setHydrated(true), []);
 
   // Debounced so the iframe remounts once after a burst of typing, not on every key.
   useEffect(() => {
@@ -244,26 +247,34 @@ export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   return (
     <main className="w-full px-6 py-8 lg:px-10">
-      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up.
-          The 900px floor is what the invitation's cover needs: it scales its type by width
-          but lays it out by height, so a shorter pane makes the lines overlap. */}
-      <div className="flex flex-col gap-8 lg:h-[max(900px,calc(100vh-8rem))] lg:flex-row lg:items-stretch lg:gap-10">
-        <div className="relative h-[clamp(900px,82vh,1150px)] overflow-hidden rounded-xl border border-border bg-ink lg:h-full lg:flex-1">
-          {!loaded && (
-            <div className="absolute inset-0 grid place-items-center text-xs text-gold/80 animate-pulse">
-              Loading invitation…
-            </div>
-          )}
-          {hydrated && (
-            <iframe
-              key={hash}
-              src={`${templateOrigin(snapshot.manifest.slug, snapshot.manifest.origin)}${hash}`}
-              title={`${snapshot.manifest.name} live preview`}
-              onLoad={() => setLoadedHash(hash)}
-              allow="autoplay; fullscreen"
-              className="h-full w-full bg-ink"
-            />
-          )}
+      {/* Sticks below the site header (h-16, z-40) so it stays reachable on a 390px phone. */}
+      <div className="sticky top-16 z-20 -mx-6 flex items-center gap-3 border-b border-border bg-background/95 px-6 py-3 backdrop-blur lg:-mx-10 lg:px-10">
+        <Link
+          to="/create"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Link>
+        <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
+          {snapshot.manifest.name}
+        </span>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <DeviceToggle device={device} onChange={setDevice} />
+          <Button disabled title="Coming soon" size="sm">
+            Publish
+          </Button>
+        </div>
+      </div>
+
+      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up. */}
+      <div className="mt-8 flex flex-col gap-8 lg:h-[max(900px,calc(100vh-8rem))] lg:flex-row lg:items-stretch lg:gap-10">
+        <div className="lg:min-w-0 lg:flex-1">
+          <PreviewPane
+            src={`${templateOrigin(snapshot.manifest.slug, snapshot.manifest.origin)}${hash}`}
+            title={`${snapshot.manifest.name} live preview`}
+            slug={snapshot.manifest.slug}
+            device={device}
+          />
         </div>
 
         <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:h-full lg:w-[26rem] lg:max-w-none lg:overflow-y-auto">
@@ -307,7 +318,9 @@ export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
               </AlertDialogContent>
             </AlertDialog>
           </div>
-          {ready ? (
+          {editorFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">This design has nothing to fill in yet.</p>
+          ) : ready ? (
             <FormSections
               fields={editorFields}
               values={form.values}
