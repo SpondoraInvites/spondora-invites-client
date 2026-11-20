@@ -132,6 +132,39 @@ describe("event cards", () => {
     expect(itemInput(1, "venueName")).toBeVisible();
   });
 
+  it("labels each Bangla item input in Bangla and leaves the English ones alone", () => {
+    render(<Harness snapshot={base} />);
+    fireEvent.click(addButton());
+    fireEvent.click(screen.getByRole("radio", { name: "Both" }));
+
+    const fields = [
+      ["tag", "ট্যাগ", "Tag"],
+      ["name", "অনুষ্ঠানের নাম", "Event name"],
+      ["venueName", "স্থানের নাম", "Venue"],
+      ["venueAddress", "ঠিকানা", "Address"],
+    ] as const;
+
+    for (const [id, banglaName, englishName] of fields) {
+      const bangla = itemInput(0, id, true);
+      expect(bangla).toBeVisible();
+      expect(bangla.closest("[lang]")).toHaveAttribute("lang", "bn");
+      expect(screen.getByLabelText(banglaName, { selector: `#events-0-${id}-bn` })).toBe(bangla);
+      expect(screen.getByLabelText(englishName, { selector: `#events-0-${id}` })).toBe(
+        itemInput(0, id),
+      );
+    }
+
+    // Two cards carry the same questions, so a repeated name inside one card is a real clash.
+    const inputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        'input[id^="events-0-"]:not([type="checkbox"]), textarea[id^="events-0-"]',
+      ),
+    );
+    const labelled = inputs.map((input) => input.labels?.[0]?.textContent?.trim() ?? "");
+    expect(inputs).toHaveLength(10);
+    expect(new Set(labelled).size).toBe(inputs.length);
+  });
+
   it("disables Add at the maximum and Remove at the minimum", () => {
     render(<Harness snapshot={base} />);
 
