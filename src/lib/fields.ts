@@ -162,7 +162,7 @@ const PRIMARY_FIELD: Record<string, string> = {
   mapQuery: "venueMapQuery",
 };
 
-function primaryFieldId(itemFieldId: string): string {
+export function primaryFieldId(itemFieldId: string): string {
   return PRIMARY_FIELD[itemFieldId] ?? itemFieldId;
 }
 
