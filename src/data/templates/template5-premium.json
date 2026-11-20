@@ -285,6 +285,7 @@
           "bilingual": true,
           "id": "tag",
           "label": "Tag",
+          "labelBn": "ট্যাগ",
           "path": [
             "tag"
           ],
@@ -295,6 +296,7 @@
           "bilingual": true,
           "id": "name",
           "label": "Event name",
+          "labelBn": "অনুষ্ঠানের নাম",
           "path": [
             "name"
           ],
@@ -315,6 +317,7 @@
           "id": "venueName",
           "inherits": true,
           "label": "Venue",
+          "labelBn": "স্থানের নাম",
           "path": [
             "venue"
           ],
@@ -325,6 +328,7 @@
           "id": "venueAddress",
           "inherits": true,
           "label": "Address",
+          "labelBn": "ঠিকানা",
           "path": [
             "address"
           ],
