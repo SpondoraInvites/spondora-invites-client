@@ -164,21 +164,34 @@ export interface DerivedTargets {
   translations: [string[], string][];
 }
 
-/** Every string the main event shows, in both languages (WT-14b §1). */
-export function dateTargets(d: DerivedDateTime): DerivedTargets {
+/** Every string the main event shows, in both languages (WT-14b §1). `events: false`
+ *  leaves the event array to the group resolver, which handles a touched first event. */
+export function dateTargets(
+  d: DerivedDateTime,
+  options: { events?: boolean } = {},
+): DerivedTargets {
+  const showEvents = options.events ?? true;
   return {
     config: [
       [["dateDisplay"], d.dateEn],
-      [["events", "0", "date"], d.dateEn],
-      [["events", "0", "time"], d.timeEn],
-      [["events", "0", "calDate"], d.calDate],
-      [["events", "0", "calStart"], d.calStart],
-      [["events", "0", "calEnd"], d.calEnd],
+      ...(showEvents
+        ? ([
+            [["events", "0", "date"], d.dateEn],
+            [["events", "0", "time"], d.timeEn],
+            [["events", "0", "calDate"], d.calDate],
+            [["events", "0", "calStart"], d.calStart],
+            [["events", "0", "calEnd"], d.calEnd],
+          ] as [string[], string][])
+        : []),
     ],
     translations: [
       [["bn", "dateDisplay"], d.dateBn],
-      [["bn", "events", "0", "date"], d.dateBn],
-      [["bn", "events", "0", "time"], d.timeBn],
+      ...(showEvents
+        ? ([
+            [["bn", "events", "0", "date"], d.dateBn],
+            [["bn", "events", "0", "time"], d.timeBn],
+          ] as [string[], string][])
+        : []),
     ],
   };
 }

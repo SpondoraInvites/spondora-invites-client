@@ -39,6 +39,7 @@ import {
   resolveConfig,
   resolveTranslations,
   scalarFields,
+  seedTouched,
   setAtPath,
   type TemplateSnapshot,
 } from "@/lib/fields";
@@ -85,13 +86,14 @@ function toggleField(snapshot: TemplateSnapshot) {
 function hashFor(
   snapshot: TemplateSnapshot,
   fields: Field[],
-  form: Pick<FormState, "values" | "translations">,
+  form: Pick<FormState, "values" | "translations" | "touched">,
   bilingual: boolean,
 ) {
   const { values } = form;
   const ctx = dateContext(snapshot);
   const dateField = fields.find((field) => field.type === "datetime");
   const deadlineField = fields.find((field) => field.type === "date");
+  const hasGroup = fields.some((field) => field.type === "group");
 
   const localValue = dateField ? values[dateField.id] : "";
   const local = typeof localValue === "string" ? localValue : "";
@@ -109,10 +111,17 @@ function hashFor(
     snapshot,
     date ? written : written.filter((field) => field !== dateField),
     date && dateField ? { ...values, [dateField.id]: date.iso } : values,
+    form.touched,
   );
 
-  const translations = resolveTranslations(snapshot, fields, form.translations);
-  if (date) applyTargets(config, translations, dateTargets(date));
+  const translations = resolveTranslations(
+    snapshot,
+    fields,
+    form.translations,
+    values,
+    form.touched,
+  );
+  if (date) applyTargets(config, translations, dateTargets(date, { events: !hasGroup }));
   if (deadline) applyTargets(config, translations, rsvpDeadlineTargets(deadline));
 
   // Preview-only: no music loop or WhatsApp popups while typing.
@@ -150,22 +159,27 @@ function CreatePage() {
 
 function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
   const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
+  const editorFields = useMemo(
+    () => [...fields, ...snapshot.fields.filter((field) => field.type === "group")],
+    [snapshot, fields],
+  );
   const toggle = useMemo(() => toggleField(snapshot), [snapshot]);
   // The toggle rides in `values`, so its boolean is part of the draft (WT-15).
-  const seed = useMemo<FormState>(
-    () => ({
-      values: seedValues(snapshot, toggle ? [...fields, toggle] : fields),
-      translations: seedTranslations(snapshot, fields),
-      touched: new Set<string>(),
-    }),
-    [snapshot, fields, toggle],
-  );
+  const seed = useMemo<FormState>(() => {
+    const values = seedValues(snapshot, toggle ? [...editorFields, toggle] : editorFields);
+    const translations = seedTranslations(snapshot, editorFields);
+    return {
+      values,
+      translations,
+      touched: seedTouched(snapshot, editorFields, values, translations),
+    };
+  }, [snapshot, editorFields, toggle]);
   const { form, setForm, status, clear, ready } = useDraft(snapshot, seed);
   // Bangla is collected unless the template's own config says otherwise. A template with
   // no toggle at all publishes English only.
   const bilingual = toggle ? form.values[toggle.id] === true : false;
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  const [hash, setHash] = useState(() => hashFor(snapshot, fields, seed, bilingual));
+  const [hash, setHash] = useState(() => hashFor(snapshot, editorFields, seed, bilingual));
   // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
   // set but never remounts (the first effect run) cannot hide or strand the overlay.
   const [loadedHash, setLoadedHash] = useState<string>();
@@ -178,9 +192,9 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   // Debounced so the iframe remounts once after a burst of typing, not on every key.
   useEffect(() => {
-    const timer = setTimeout(() => setHash(hashFor(snapshot, fields, form, bilingual)), 400);
+    const timer = setTimeout(() => setHash(hashFor(snapshot, editorFields, form, bilingual)), 400);
     return () => clearTimeout(timer);
-  }, [snapshot, fields, form, bilingual]);
+  }, [snapshot, editorFields, form, bilingual]);
 
   const update = (field: Field, raw: string, bn = false) => {
     setForm((prev) => nextForm(snapshot, fields, prev, field, raw, bn));
