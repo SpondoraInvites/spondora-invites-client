@@ -20,11 +20,11 @@ interface BnInput {
 interface FieldRowProps {
   field: Field;
   value: string;
-  error?: string;
+  error?: string | undefined;
   onChange: (field: Field, value: string) => void;
   onBlur: (field: Field) => void;
   /** Present only for a bilingual field whose Bangla path the snapshot carries (WT-14c). */
-  bn?: BnInput;
+  bn?: BnInput | undefined;
   language?: Language;
 }
 

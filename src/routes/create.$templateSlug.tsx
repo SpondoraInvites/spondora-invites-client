@@ -1,15 +1,28 @@
 /**
  * The invite editor (WT-13 spike, generic form from WT-14a, dates from WT-14b, bilingual
- *  inputs from WT-14c).
+ *  inputs from WT-14c, draft persistence from WT-15).
  *
- * Values live in local state and are written into the preview link's `#cfg=` hash.
- * Nothing is saved yet (WT-15) and the shell is WT-18.
+ * Values live in the draft and are written into the preview link's `#cfg=` hash.
+ * The shell is WT-18.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { FormSections } from "@/components/editor/FormSections";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
+import { useDraft } from "@/hooks/use-draft";
 import type { Field } from "@/lib/canonical-fields";
 import {
   dateTargets,
@@ -23,7 +36,6 @@ import { nextForm, seedTranslations, seedValues, type FormState } from "@/lib/ed
 import { normaliseMonogram, normaliseValue, validateField } from "@/lib/field-schema";
 import {
   readPath,
-  readValue,
   resolveConfig,
   resolveTranslations,
   scalarFields,
@@ -69,13 +81,6 @@ function toggleField(snapshot: TemplateSnapshot) {
   return snapshot.fields.find((field) => field.type === "toggle");
 }
 
-/** Bangla is collected unless the template's own config says otherwise. A template with no
- *  toggle at all publishes English only. */
-function banglaEnabled(snapshot: TemplateSnapshot): boolean {
-  const field = toggleField(snapshot);
-  return field ? readValue(snapshot.defaults, field.path) !== false : false;
-}
-
 /** The full `#cfg=` hash for one set of form values. */
 function hashFor(
   snapshot: TemplateSnapshot,
@@ -88,12 +93,14 @@ function hashFor(
   const dateField = fields.find((field) => field.type === "datetime");
   const deadlineField = fields.find((field) => field.type === "date");
 
-  const local = dateField ? (values[dateField.id] ?? "") : "";
+  const localValue = dateField ? values[dateField.id] : "";
+  const local = typeof localValue === "string" ? localValue : "";
   const date = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)
     ? deriveDateTime(local, ctx)
     : undefined;
   // `<input type="date">` gives "2027-01-25"; an empty or half-picked day writes nothing.
-  const day = deadlineField ? (values[deadlineField.id] ?? "") : "";
+  const dayValue = deadlineField ? values[deadlineField.id] : "";
+  const day = typeof dayValue === "string" ? dayValue : "";
   const deadline = /^\d{4}-\d{2}-\d{2}$/.test(day) ? deriveRsvpDeadline(day, ctx) : undefined;
 
   // The date inputs' own writes are the derived strings below, never the raw input value.
@@ -138,22 +145,25 @@ function CreatePage() {
       </main>
     );
   }
-  return <Editor snapshot={snapshot} />;
+  return <Editor key={snapshot.manifest.slug} snapshot={snapshot} />;
 }
 
 function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
   const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
   const toggle = useMemo(() => toggleField(snapshot), [snapshot]);
-  const [bilingual, setBilingual] = useState(() => banglaEnabled(snapshot));
+  // The toggle rides in `values`, so its boolean is part of the draft (WT-15).
   const seed = useMemo<FormState>(
     () => ({
-      values: seedValues(snapshot, fields),
+      values: seedValues(snapshot, toggle ? [...fields, toggle] : fields),
       translations: seedTranslations(snapshot, fields),
       touched: new Set<string>(),
     }),
-    [snapshot, fields],
+    [snapshot, fields, toggle],
   );
-  const [form, setForm] = useState(seed);
+  const { form, setForm, status, clear, ready } = useDraft(snapshot, seed);
+  // Bangla is collected unless the template's own config says otherwise. A template with
+  // no toggle at all publishes English only.
+  const bilingual = toggle ? form.values[toggle.id] === true : false;
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [hash, setHash] = useState(() => hashFor(snapshot, fields, seed, bilingual));
   // The hash the iframe last finished loading. Deriving `loaded` from it means a hash that is
@@ -186,7 +196,8 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
 
   const blur = (field: Field, bn = false) => {
     const key = bn ? `${field.id}:bn` : field.id;
-    const current = (bn ? form.translations[field.id] : form.values[field.id]) ?? "";
+    const raw = bn ? form.translations[field.id] : form.values[field.id];
+    const current = typeof raw === "string" ? raw : "";
     const value = !bn && field.derived === "initials" ? normaliseMonogram(current) : current;
     if (value !== current) {
       setForm((prev) =>
@@ -196,6 +207,11 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
       );
     }
     setErrors((prev) => ({ ...prev, [key]: validateField(field, value) }));
+  };
+
+  const setBilingual = (on: boolean) => {
+    if (!toggle) return;
+    setForm((prev) => ({ ...prev, values: { ...prev.values, [toggle.id]: on } }));
   };
 
   return (
@@ -227,20 +243,50 @@ function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
             <span className="eyebrow text-primary">Editor preview</span>
             <h1 className="mt-2 text-3xl text-primary">{snapshot.manifest.name}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              These inputs write straight into the preview link. Nothing is saved yet.
+              These inputs write straight into the preview link. Your details are saved in this
+              browser as you type.
             </p>
           </div>
-          <FormSections
-            fields={fields}
-            values={form.values}
-            translations={form.translations}
-            errors={errors}
-            bilingual={bilingual}
-            onBilingualChange={setBilingual}
-            toggleField={toggle}
-            onEdit={update}
-            onBlur={blur}
-          />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "\u00a0"}
+            </span>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  Start over
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start over?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This clears the details saved in this browser and puts the sample data back. It
+                    cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep my details</AlertDialogCancel>
+                  <AlertDialogAction onClick={clear}>Start over</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          {ready ? (
+            <FormSections
+              fields={fields}
+              values={form.values}
+              translations={form.translations}
+              errors={errors}
+              bilingual={bilingual}
+              onBilingualChange={setBilingual}
+              toggleField={toggle}
+              onEdit={update}
+              onBlur={blur}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading your draft…</p>
+          )}
         </aside>
       </div>
     </main>

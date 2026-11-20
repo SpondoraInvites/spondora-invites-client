@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 
 import type { Field } from "@/lib/canonical-fields";
+import type { FormValue } from "@/lib/editor-form";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -9,7 +10,9 @@ import { FieldRow, type Language } from "./FieldRow";
 
 interface FormSectionsProps {
   fields: Field[];
-  values: Record<string, string>;
+  /** Text per field id. The toggle and group values live here too, but only scalar fields
+   *  have a row, so only strings reach an input. */
+  values: Record<string, FormValue>;
   /** Bangla values, keyed by field id. A field is bilingual exactly when it has a key here. */
   translations: Record<string, string>;
   errors: Record<string, string | undefined>;
@@ -93,11 +96,12 @@ export function FormSections({
           <h2 className="eyebrow text-primary">{section}</h2>
           {sectionFields.map((field) => {
             const bn = field.id in translations ? translations[field.id] : undefined;
+            const value = values[field.id];
             return (
               <FieldRow
                 key={field.id}
                 field={field}
-                value={values[field.id] ?? ""}
+                value={typeof value === "string" ? value : ""}
                 error={errors[field.id]}
                 onChange={onEdit}
                 onBlur={onBlur}
