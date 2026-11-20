@@ -6,11 +6,20 @@
  */
 import type { Field } from "@/lib/canonical-fields";
 import { deriveHashtag, deriveInitials, displayDateToIso, isoToLocal } from "@/lib/derive";
-import { banglaTree, bilingualFields, readPath, type TemplateSnapshot } from "@/lib/fields";
+import {
+  banglaTree,
+  bilingualFields,
+  readPath,
+  readValue,
+  type TemplateSnapshot,
+} from "@/lib/fields";
 import { normaliseValue } from "@/lib/field-schema";
 
+/** A field's value: text, the localization toggle, or an events group (WT-17). */
+export type FormValue = string | boolean | Record<string, string>[];
+
 export interface FormState {
-  values: Record<string, string>;
+  values: Record<string, FormValue>;
   /** Bangla, keyed by the same field id (WT-14c). Empty when the template has no bn tree. */
   translations: Record<string, string>;
   touched: Set<string>;
@@ -19,10 +28,13 @@ export interface FormState {
 /** The couple's names drive the derived fields, wherever their paths landed. */
 const NAME_PATHS = ["couple.name1", "couple.name2"];
 
-export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<string, string> {
+export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<string, FormValue> {
   return Object.fromEntries(
     fields.map((field) => {
       const value = readPath(snapshot.defaults, field.path);
+      // The toggle is the draft's only boolean: anything but an explicit `false` is on.
+      if (field.type === "toggle")
+        return [field.id, readValue(snapshot.defaults, field.path) !== false];
       // The input shows local wall-clock time; the template keeps the ISO with its offset.
       if (field.type === "datetime") return [field.id, isoToLocal(value)];
       // A `date` value is the display string the template prints ("20 November 2026").
@@ -32,9 +44,10 @@ export function seedValues(snapshot: TemplateSnapshot, fields: Field[]): Record<
   );
 }
 
-function nameValue(values: Record<string, string>, fields: Field[], path: string): string {
+function nameValue(values: Record<string, FormValue>, fields: Field[], path: string): string {
   const field = fields.find((item) => item.path.join(".") === path);
-  return field ? (values[field.id] ?? "") : "";
+  const value = field ? values[field.id] : undefined;
+  return typeof value === "string" ? value : "";
 }
 
 /** The Bangla values the form starts with, keyed by the same field id (WT-14c). Only the
