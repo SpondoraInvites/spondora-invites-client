@@ -151,12 +151,20 @@ for (const slug of TEMPLATE_SLUGS) {
         seen.add(field.id);
 
         const canonical = CANONICAL_FIELDS.find((item) => item.id === field.id);
-        const itemIds = new Set((canonical?.itemFields ?? []).map((item) => item.id));
+        const canonicalItems = new Map(
+          (canonical?.itemFields ?? []).map((item) => [item.id, item]),
+        );
         for (const item of field.itemFields ?? []) {
           expect(
-            itemIds.has(item.id),
+            canonicalItems.has(item.id),
             `${slug}: unknown item field id "${field.id}.${item.id}"`,
           ).toBe(true);
+          // A bilingual item has a Bangla input, so it needs a Bangla label (WT-17c).
+          if (!item.bilingual || !canonicalItems.get(item.id)?.bilingual) continue;
+          expect(
+            item.labelBn,
+            `${slug}: bilingual item "${field.id}.${item.id}" needs a labelBn`,
+          ).toBeTruthy();
         }
       }
     });
