@@ -18,6 +18,6 @@ describe("template5-premium snapshot", () => {
   });
 
   it("has the derived field count expected for this template", () => {
-    expect(snapshot.fields).toHaveLength(14);
+    expect(snapshot.fields).toHaveLength(15);
   });
 });

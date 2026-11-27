@@ -345,6 +345,7 @@
         }
       ],
       "itemLabel": "Event",
+      "itemTitle": "name",
       "label": "Events",
       "max": 4,
       "min": 1,
@@ -352,6 +353,55 @@
         "events"
       ],
       "section": "Events",
+      "type": "group"
+    },
+    {
+      "bilingual": true,
+      "id": "story",
+      "itemFields": [
+        {
+          "bilingual": true,
+          "hint": "A bare year, or a date like March 2021. Optional.",
+          "id": "year",
+          "label": "Year",
+          "labelBn": "সাল",
+          "path": [
+            "label"
+          ],
+          "type": "text"
+        },
+        {
+          "bilingual": true,
+          "id": "title",
+          "label": "Title",
+          "labelBn": "শিরোনাম",
+          "path": [
+            "title"
+          ],
+          "required": true,
+          "type": "text"
+        },
+        {
+          "bilingual": true,
+          "id": "description",
+          "label": "Description",
+          "labelBn": "বিবরণ",
+          "path": [
+            "text"
+          ],
+          "required": true,
+          "type": "textarea"
+        }
+      ],
+      "itemLabel": "Chapter",
+      "itemTitle": "title",
+      "max": 6,
+      "min": 1,
+      "path": [
+        "story",
+        "chapters"
+      ],
+      "section": "Our story",
       "type": "group"
     }
   ],

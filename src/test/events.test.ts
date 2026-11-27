@@ -6,14 +6,14 @@ import {
   resolveConfig,
   resolveTranslations,
   seedTouched,
-  type EventItem,
+  type GroupItem,
   type TemplateSnapshot,
 } from "@/lib/fields";
 
 const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
 
 /** The template's seeded values, with the test's own event list in place. */
-function valuesWith(events: EventItem[]): Record<string, unknown> {
+function valuesWith(events: GroupItem[]): Record<string, unknown> {
   return { ...seedValues(base, base.fields), events };
 }
 
@@ -28,7 +28,7 @@ function resolvedBn(values: Record<string, unknown>, touched = new Set<string>()
   return (tree["bn"] as Record<string, unknown>)["events"] as Record<string, unknown>[];
 }
 
-const mehendi: EventItem = {
+const mehendi: GroupItem = {
   tag: "Mehendi",
   name: "Mehendi Night",
   dateTime: "2026-12-10T19:00",
@@ -42,7 +42,7 @@ const mehendi: EventItem = {
   },
 };
 
-const wedding: EventItem = {
+const wedding: GroupItem = {
   tag: "Wedding",
   name: "Wedding of Ayesha & Imran",
   dateTime: "2026-12-13T17:00",
@@ -59,7 +59,7 @@ const wedding: EventItem = {
 describe("seeding the events group", () => {
   it("puts English at the item root and Bangla in bn", () => {
     const values = seedValues(base, base.fields);
-    const events = values["events"] as EventItem[];
+    const events = values["events"] as GroupItem[];
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ tag: "Wedding", dateTime: "2026-12-11T16:00" });

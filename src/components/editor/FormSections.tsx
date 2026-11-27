@@ -6,13 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-import { EventCards } from "./EventCards";
+import { GroupCards } from "./GroupCards";
 import { FieldRow, type Language } from "./FieldRow";
 
 interface FormSectionsProps {
   fields: Field[];
   /** Text per field id. The toggle and the group items live here too: the toggle is a
-   *  boolean, an event is an `EventItem[]`, and those render as their own widgets. */
+   *  boolean, an event is an `GroupItem[]`, and those render as their own widgets. */
   values: Record<string, FormValue>;
   /** Bangla values, keyed by field id. A field is bilingual exactly when it has a key here. */
   translations: Record<string, string>;
@@ -94,7 +94,7 @@ export function FormSections({
             if (field.type === "group") {
               const items = values[field.id];
               return (
-                <EventCards
+                <GroupCards
                   key={field.id}
                   field={field}
                   items={Array.isArray(items) ? items : []}

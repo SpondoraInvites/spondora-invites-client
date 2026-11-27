@@ -3,20 +3,20 @@ import { describe, expect, it } from "vitest";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates/index";
 import type { Field, FieldType } from "@/lib/canonical-fields";
 import {
-  addEvent,
+  addGroupItem,
   formErrors,
   markVisited,
   missingAnswers,
-  moveEvent,
+  moveGroupItem,
   nextForm,
-  removeEvent,
+  removeGroupItem,
   sectionGroups,
   seedTranslations,
   seedValues,
-  setEventInherits,
+  setItemInherits,
   type FormState,
 } from "@/lib/editor-form";
-import { scalarFields, seedTouched, type EventItem, type TemplateSnapshot } from "@/lib/fields";
+import { scalarFields, seedTouched, type GroupItem, type TemplateSnapshot } from "@/lib/fields";
 
 const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
 const editorFields: Field[] = [
@@ -240,6 +240,7 @@ describe("formErrors", () => {
       "When",
       "RSVP",
       "Events",
+      "Our story",
     ]);
   });
 });
@@ -247,14 +248,14 @@ describe("formErrors", () => {
 describe("event answers", () => {
   /** A blank card: the two required items, plus an inherited venue to leave alone. */
   function blankCard(form: FormState, index: number): FormState {
-    const items = (form.values["events"] as EventItem[]).map((item, position) =>
+    const items = (form.values["events"] as GroupItem[]).map((item, position) =>
       position === index ? { ...item, tag: "", name: "" } : item,
     );
     return { ...form, values: { ...form.values, events: items } };
   }
 
   it("reports a blank tag and name per card, and is quiet about the inherited venue", () => {
-    const form = blankCard(blankCard(addEvent(seeded(), group), 0), 1);
+    const form = blankCard(blankCard(addGroupItem(seeded(), group), 0), 1);
 
     expect(formErrors(editorFields, form, false)).toEqual({
       "events.0.tag": "This is required.",
@@ -265,7 +266,7 @@ describe("event answers", () => {
   });
 
   it("adds the Bangla half of each item while the toggle is on", () => {
-    const form = blankCard(addEvent(seeded(), group), 1);
+    const form = blankCard(addGroupItem(seeded(), group), 1);
 
     expect(formErrors(editorFields, form, true)).toEqual({
       "events.1.tag": "This is required.",
@@ -311,7 +312,13 @@ describe("event answers", () => {
   });
 
   it("counts the required items of a card the couple just added", () => {
-    const own = setEventInherits(addEvent(seeded(), group), group, 1, itemField("venueName"), true);
+    const own = setItemInherits(
+      addGroupItem(seeded(), group),
+      group,
+      1,
+      itemField("venueName"),
+      true,
+    );
 
     expect(formErrors(editorFields, own, false)).toHaveProperty("events.1.name");
   });
@@ -319,8 +326,8 @@ describe("event answers", () => {
 
 describe("visited keys", () => {
   it("remaps with the cards exactly as the touch keys do", () => {
-    const added = setEventInherits(
-      addEvent(seeded(), group),
+    const added = setItemInherits(
+      addGroupItem(seeded(), group),
       group,
       1,
       itemField("venueName"),
@@ -328,13 +335,13 @@ describe("visited keys", () => {
     );
     const visited = markVisited(added, "events.1.venueName");
 
-    const moved = moveEvent(visited, group, 1, -1);
+    const moved = moveGroupItem(visited, group, 1, -1);
     expect([...(moved.visited ?? [])]).toEqual(["events.0.venueName"]);
-    const back = moveEvent(moved, group, 0, 1);
+    const back = moveGroupItem(moved, group, 0, 1);
     expect([...(back.visited ?? [])]).toEqual(["events.1.venueName"]);
 
-    const removed = removeEvent(visited, group, 0);
+    const removed = removeGroupItem(visited, group, 0);
     expect([...(removed.visited ?? [])]).toEqual(["events.0.venueName"]);
-    expect([...(removeEvent(visited, group, 1).visited ?? [])]).toEqual([]);
+    expect([...(removeGroupItem(visited, group, 1).visited ?? [])]).toEqual([]);
   });
 });
