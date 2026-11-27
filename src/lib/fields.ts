@@ -26,7 +26,7 @@ export interface TemplateSnapshot {
 }
 
 /** One event as the editor holds it: English at the root, Bangla under `bn`. */
-export interface EventItem {
+export interface GroupItem {
   bn?: Record<string, string>;
   [itemId: string]: string | Record<string, string> | undefined;
 }
@@ -80,7 +80,7 @@ export function resolveTranslations(
         setAtPath(
           bn,
           field.path,
-          resolveEventTranslations(snapshot, field, values, translations, touched),
+          resolveGroupTranslations(snapshot, field, values, translations, touched),
         );
       continue;
     }
@@ -148,7 +148,7 @@ export function resolveConfig(
   for (const field of fields) {
     if (!(field.id in values)) continue;
     if (field.type === "group") {
-      setAtPath(config, field.path, resolveEventItems(snapshot, field, values, touched));
+      setAtPath(config, field.path, resolveGroupItems(snapshot, field, values, touched));
       continue;
     }
     setAtPath(config, field.path, values[field.id]);
@@ -166,12 +166,12 @@ export function primaryFieldId(itemFieldId: string): string {
   return PRIMARY_FIELD[itemFieldId] ?? itemFieldId;
 }
 
-function itemText(item: EventItem | undefined, id: string): string {
+function itemText(item: GroupItem | undefined, id: string): string {
   const value = item?.[id];
   return typeof value === "string" ? value : "";
 }
 
-function itemBnText(item: EventItem | undefined, id: string): string {
+function itemBnText(item: GroupItem | undefined, id: string): string {
   const value = item?.bn?.[id];
   return typeof value === "string" ? value : "";
 }
@@ -200,9 +200,9 @@ function itemCount(field: Pick<Field, "min" | "max">, provided: unknown[]): numb
   return Math.min(Math.max(provided.length, min), max);
 }
 
-function eventItems(values: Record<string, unknown>, id: string): EventItem[] {
+function groupItems(values: Record<string, unknown>, id: string): GroupItem[] {
   const value = values[id];
-  return Array.isArray(value) ? (value as EventItem[]) : [];
+  return Array.isArray(value) ? (value as GroupItem[]) : [];
 }
 
 function templateOffset(snapshot: TemplateSnapshot): string {
@@ -210,7 +210,7 @@ function templateOffset(snapshot: TemplateSnapshot): string {
   return /[+-]\d{2}:\d{2}$/.exec(iso)?.[0] ?? "+06:00";
 }
 
-function eventContext(template: Record<string, unknown>, offset: string): DateTimeContext {
+function itemContext(template: Record<string, unknown>, offset: string): DateTimeContext {
   const calEnd = typeof template["calEnd"] === "string" ? template["calEnd"] : "";
   return {
     offset,
@@ -220,9 +220,9 @@ function eventContext(template: Record<string, unknown>, offset: string): DateTi
 }
 
 /** The item's date input, local wall-clock time, or first 16 characters of the primary's. */
-function eventLocalDateTime(
+function itemLocalDateTime(
   itemFields: Field[],
-  source: EventItem | undefined,
+  source: GroupItem | undefined,
   values: Record<string, unknown>,
   groupId: string,
   index: number,
@@ -239,14 +239,14 @@ function eventLocalDateTime(
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local) ? local : "";
 }
 
-function applyEventDate(
+function applyItemDate(
   item: Record<string, unknown>,
   local: string,
   template: Record<string, unknown>,
   offset: string,
   bn = false,
 ) {
-  const derived = deriveDateTime(local, eventContext(template, offset));
+  const derived = deriveDateTime(local, itemContext(template, offset));
   item["date"] = bn ? derived.dateBn : derived.dateEn;
   item["time"] = bn ? derived.timeBn : derived.timeEn;
   if (bn) return;
@@ -267,7 +267,7 @@ export function seedTouched(
   const bn = banglaTree(snapshot.translations);
   for (const field of fields) {
     if (field.type !== "group" || !(field.id in values)) continue;
-    const items = eventItems(values, field.id);
+    const items = groupItems(values, field.id);
     const bnItems = bn ? templateRecords(readValue(bn, field.path)) : [];
     items.forEach((item, index) => {
       for (const itemField of field.itemFields ?? []) {
@@ -286,14 +286,14 @@ export function seedTouched(
 }
 
 /** The group's English items: exposed fields, unexposed template keys, derived dates. */
-function resolveEventItems(
+function resolveGroupItems(
   snapshot: TemplateSnapshot,
   field: EditableField,
   values: Record<string, unknown>,
   touched: ReadonlySet<string>,
 ): Record<string, unknown>[] {
   const itemFields = field.itemFields ?? [];
-  const provided = eventItems(values, field.id);
+  const provided = groupItems(values, field.id);
   const templates = templateRecords(readValue(snapshot.defaults, field.path));
   const offset = templateOffset(snapshot);
 
@@ -314,14 +314,14 @@ function resolveEventItems(
       setAtPath(item, itemField.path, value);
     }
 
-    const local = eventLocalDateTime(itemFields, source, values, field.id, index, touched);
-    if (local) applyEventDate(item, local, template, offset);
+    const local = itemLocalDateTime(itemFields, source, values, field.id, index, touched);
+    if (local) applyItemDate(item, local, template, offset);
     return item;
   });
 }
 
 /** The group's Bangla items: bilingual fields only, inherited from the Bangla primary. */
-function resolveEventTranslations(
+function resolveGroupTranslations(
   snapshot: TemplateSnapshot,
   field: EditableField,
   values: Record<string, unknown>,
@@ -330,7 +330,7 @@ function resolveEventTranslations(
 ): Record<string, unknown>[] {
   const itemFields = field.itemFields ?? [];
   const bilingual = itemFields.filter((itemField) => itemField.bilingual);
-  const provided = eventItems(values, field.id);
+  const provided = groupItems(values, field.id);
   const englishTemplates = templateRecords(readValue(snapshot.defaults, field.path));
   const bn = banglaTree(snapshot.translations);
   const bnTemplates = bn ? templateRecords(readValue(bn, field.path)) : [];
@@ -353,8 +353,8 @@ function resolveEventTranslations(
       setAtPath(item, itemField.path, value);
     }
 
-    const local = eventLocalDateTime(itemFields, source, values, field.id, index, touched);
-    if (local) applyEventDate(item, local, englishTemplate, offset, true);
+    const local = itemLocalDateTime(itemFields, source, values, field.id, index, touched);
+    if (local) applyItemDate(item, local, englishTemplate, offset, true);
     return item;
   });
 }

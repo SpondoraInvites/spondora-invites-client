@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -6,14 +6,14 @@ import { FormSections } from "@/components/editor/FormSections";
 import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
 import type { Field } from "@/lib/canonical-fields";
 import {
-  addEvent,
-  editEventItem,
+  addGroupItem,
+  editGroupItem,
   formErrors,
-  moveEvent,
-  removeEvent,
+  moveGroupItem,
+  removeGroupItem,
   seedTranslations,
   seedValues,
-  setEventInherits,
+  setItemInherits,
   type FormState,
 } from "@/lib/editor-form";
 import {
@@ -21,7 +21,7 @@ import {
   resolveTranslations,
   scalarFields,
   seedTouched,
-  type EventItem,
+  type GroupItem,
   type TemplateSnapshot,
 } from "@/lib/fields";
 
@@ -39,8 +39,8 @@ function seedState(): FormState {
   return { values, translations, touched: seedTouched(base, base.fields, values, translations) };
 }
 
-function eventsOf(state: FormState): EventItem[] {
-  return state.values["events"] as EventItem[];
+function eventsOf(state: FormState): GroupItem[] {
+  return state.values["events"] as GroupItem[];
 }
 
 function resolvedEvents(
@@ -104,7 +104,7 @@ function Harness({ snapshot }: { snapshot: TemplateSnapshot }) {
   );
 }
 
-function stored(): { events: EventItem[]; touched: string[] } {
+function stored(): { events: GroupItem[]; touched: string[] } {
   return JSON.parse(screen.getByTestId("state").textContent ?? "{}");
 }
 
@@ -115,13 +115,22 @@ function headers(): string[] {
     .filter((text) => /^Event \d/.test(text));
 }
 
-/** One item input by the id EventCards gives it: `events.<index>.<itemId>`. */
+/** One item input by the id GroupCards gives it: `events.<index>.<itemId>`. */
 function itemInput(index: number, id: string, bn = false) {
   return document.getElementById(`events-${index}-${id}${bn ? "-bn" : ""}`)!;
 }
 
 function addButton(): HTMLElement {
   return screen.getByRole("button", { name: "Add event" });
+}
+
+/** The Events section only: the story cards carry their own Remove buttons. */
+function eventsSection(): HTMLElement {
+  return screen.getByRole("heading", { name: "Events" }).closest("section")!;
+}
+
+function removeButtons(): HTMLElement[] {
+  return within(eventsSection()).getAllByRole("button", { name: "Remove" });
 }
 
 describe("event cards", () => {
@@ -175,11 +184,12 @@ describe("event cards", () => {
   it("disables Add at the maximum and Remove at the minimum", () => {
     render(<Harness snapshot={base} />);
 
-    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+    expect(removeButtons()).toHaveLength(1);
+    expect(removeButtons()[0]!).toBeDisabled();
 
     for (let count = 1; count < group.max!; count += 1) fireEvent.click(addButton());
 
-    expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(group.max!);
+    expect(removeButtons()).toHaveLength(group.max!);
     expect(addButton()).toBeDisabled();
   });
 
@@ -227,13 +237,14 @@ describe("event cards", () => {
     fireEvent.click(addButton());
     fireEvent.change(itemInput(1, "name"), { target: { value: "Mehendi Night" } });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+    fireEvent.click(removeButtons()[0]!);
     expect(screen.getByText("Remove Event 1 — Wedding of Ayesha & Imran?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
     expect(headers()).toHaveLength(2);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" }).at(-1)!);
+    fireEvent.click(removeButtons()[0]!);
+    const dialog = screen.getByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
 
     expect(headers()).toEqual(["Event 1 — Mehendi Night"]);
     expect(stored().events).toHaveLength(1);
@@ -258,13 +269,13 @@ describe("event cards", () => {
 describe("the events form state", () => {
   it("records the touch when checked and clears both languages when unchecked", () => {
     const seeded = seedState();
-    const checked = setEventInherits(seeded, group, 0, venue, true);
+    const checked = setItemInherits(seeded, group, 0, venue, true);
 
     expect(checked.touched.has("events.0.venueName")).toBe(true);
     expect(eventsOf(checked)[0]!["venueName"]).toBe("Lakeshore Grand Ballroom");
     expect(eventsOf(checked)[0]!.bn!["venueName"]).toBe("লেকশোর গ্র্যান্ড বলরুম");
 
-    const unchecked = setEventInherits(checked, group, 0, venue, false);
+    const unchecked = setItemInherits(checked, group, 0, venue, false);
     expect(unchecked.touched.has("events.0.venueName")).toBe(false);
     expect(eventsOf(unchecked)[0]!["venueName"]).toBe("");
     expect(eventsOf(unchecked)[0]!.bn!["venueName"]).toBe("");
@@ -273,7 +284,7 @@ describe("the events form state", () => {
   it("keeps a Bangla item edit inside the item, out of the scalar translations", () => {
     const seeded = seedState();
     const name = itemField("name");
-    const edited = editEventItem(seeded, group, 0, name, "মেহেদী সন্ধ্যা", true);
+    const edited = editGroupItem(seeded, group, 0, name, "মেহেদী সন্ধ্যা", true);
 
     expect(eventsOf(edited)[0]!.bn!["name"]).toBe("মেহেদী সন্ধ্যা");
     expect(edited.translations).toEqual(seeded.translations);
@@ -281,7 +292,7 @@ describe("the events form state", () => {
   });
 
   it("moves an untouched event with the primary date, but not a checked one", () => {
-    const added = addEvent(seedState(), group);
+    const added = addGroupItem(seedState(), group);
     const values = { ...added.values, eventDateTime: "2027-01-01T10:00" };
 
     expect(resolvedEvents(added, values)[1]).toMatchObject({
@@ -289,8 +300,8 @@ describe("the events form state", () => {
       calStart: "10:00",
     });
 
-    const own = editEventItem(
-      setEventInherits({ ...added, values }, group, 1, dateTime, true),
+    const own = editGroupItem(
+      setItemInherits({ ...added, values }, group, 1, dateTime, true),
       group,
       1,
       dateTime,
@@ -303,20 +314,20 @@ describe("the events form state", () => {
   });
 
   it("keeps each item's touch key with it when the items move or go", () => {
-    const added = setEventInherits(addEvent(seedState(), group), group, 1, venue, true);
+    const added = setItemInherits(addGroupItem(seedState(), group), group, 1, venue, true);
 
-    const moved = moveEvent(added, group, 1, -1);
+    const moved = moveGroupItem(added, group, 1, -1);
     expect(moved.touched.has("events.0.venueName")).toBe(true);
     expect(moved.touched.has("events.1.venueName")).toBe(false);
 
-    const removed = removeEvent(moved, group, 0);
+    const removed = removeGroupItem(moved, group, 0);
     expect(removed.touched.has("events.0.venueName")).toBe(false);
     expect(eventsOf(removed)).toHaveLength(1);
     expect(eventsOf(removed)[0]!["name"]).toBe("Wedding of Ayesha & Imran");
   });
 
   it("blocks removing the only event", () => {
-    const removed = removeEvent(seedState(), group, 0);
+    const removed = removeGroupItem(seedState(), group, 0);
 
     expect(eventsOf(removed)).toHaveLength(1);
     expect(resolvedEvents(removed)).toHaveLength(1);

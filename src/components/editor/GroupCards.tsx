@@ -1,6 +1,7 @@
 /**
- * The events editor (WT-17b): one collapsible card per event, with add, remove, reorder and
- * the inheritance checkbox that lets an event follow the main one's date and venue.
+ * One `group` field's cards (WT-17b, reused by WT-26): a collapsible card per item, with add,
+ * remove, reorder and — for a field that carries one — the inheritance checkbox that lets an
+ * item follow the main event's date and venue.
  *
  * All state changes go through `editor-form.ts`, so the resolver sees the same item shape
  * the preview does.
@@ -26,21 +27,21 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import type { Field } from "@/lib/canonical-fields";
 import {
-  addEvent,
-  editEventItem,
+  addGroupItem,
+  editGroupItem,
   markVisited,
-  moveEvent,
-  removeEvent,
-  setEventInherits,
+  moveGroupItem,
+  removeGroupItem,
+  setItemInherits,
   type FormState,
   type FormValue,
 } from "@/lib/editor-form";
-import { primaryFieldId, type EventItem } from "@/lib/fields";
+import { primaryFieldId, type GroupItem } from "@/lib/fields";
 
-interface EventCardsProps {
+interface GroupCardsProps {
   /** The `group` field: its `itemFields` are the inputs of one card. */
   field: Field;
-  items: EventItem[];
+  items: GroupItem[];
   /** The whole form, so an inherited field can show the primary event's value. */
   values: Record<string, FormValue>;
   translations: Record<string, string>;
@@ -58,7 +59,7 @@ function text(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-export function EventCards({
+export function GroupCards({
   field,
   items,
   values,
@@ -68,13 +69,14 @@ export function EventCards({
   bilingual,
   language,
   onChange,
-}: EventCardsProps) {
+}: GroupCardsProps) {
   // The first card is open; the rest start collapsed so three events are not a wall.
   const [open, setOpen] = useState<ReadonlySet<number>>(() => new Set([0]));
   const itemFields = field.itemFields ?? [];
   const min = Math.max(field.min ?? 0, 1);
   const max = field.max ?? Infinity;
   const itemLabel = field.itemLabel ?? "Item";
+  const itemName = itemLabel.toLowerCase();
 
   const setOpenAt = (index: number, value: boolean) => {
     setOpen((prev) => {
@@ -86,12 +88,12 @@ export function EventCards({
   };
 
   const add = () => {
-    onChange((state) => addEvent(state, field));
+    onChange((state) => addGroupItem(state, field));
     setOpenAt(items.length, true);
   };
 
   const remove = (index: number) => {
-    onChange((state) => removeEvent(state, field, index));
+    onChange((state) => removeGroupItem(state, field, index));
     // Every card below the removed one slides up, so their open state follows.
     setOpen((prev) => {
       const next = new Set<number>();
@@ -106,7 +108,8 @@ export function EventCards({
   return (
     <div className="space-y-3">
       {items.map((item, index) => {
-        const name = text(item["name"]).trim();
+        // The field names which item value labels the card; the index keeps them apart.
+        const name = field.itemTitle ? text(item[field.itemTitle]).trim() : "";
         const title = `${itemLabel} ${index + 1}${name ? ` — ${name}` : ""}`;
         const expanded = open.has(index);
 
@@ -137,7 +140,7 @@ export function EventCards({
                 size="icon"
                 aria-label={`Move ${title} up`}
                 disabled={index === 0}
-                onClick={() => onChange((state) => moveEvent(state, field, index, -1))}
+                onClick={() => onChange((state) => moveGroupItem(state, field, index, -1))}
               >
                 <ChevronUp aria-hidden />
               </Button>
@@ -146,7 +149,7 @@ export function EventCards({
                 size="icon"
                 aria-label={`Move ${title} down`}
                 disabled={index === items.length - 1}
-                onClick={() => onChange((state) => moveEvent(state, field, index, 1))}
+                onClick={() => onChange((state) => moveGroupItem(state, field, index, 1))}
               >
                 <ChevronDown aria-hidden />
               </Button>
@@ -157,7 +160,9 @@ export function EventCards({
                     size="sm"
                     disabled={items.length <= min}
                     title={
-                      items.length <= min ? "An invitation needs at least one event" : undefined
+                      items.length <= min
+                        ? `An invitation needs at least one ${itemName}`
+                        : undefined
                     }
                   >
                     Remove
@@ -167,8 +172,8 @@ export function EventCards({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Remove {title}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Its details are deleted from the invitation. The events after it move up one
-                      card.
+                      Its details are deleted from the invitation. The {itemName}s after it move up
+                      one card.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -195,7 +200,7 @@ export function EventCards({
                       value={text(item[itemField.id])}
                       error={errors[key]}
                       onChange={(_, raw) =>
-                        onChange((state) => editEventItem(state, field, index, itemField, raw))
+                        onChange((state) => editGroupItem(state, field, index, itemField, raw))
                       }
                       onBlur={() => onChange((state) => markVisited(state, key))}
                       language={language}
@@ -210,7 +215,7 @@ export function EventCards({
                               placeholder: inherited ? primaryBangla : undefined,
                               onChange: (_, raw) =>
                                 onChange((state) =>
-                                  editEventItem(state, field, index, itemField, raw, true),
+                                  editGroupItem(state, field, index, itemField, raw, true),
                                 ),
                               onBlur: () => onChange((state) => markVisited(state, `${key}:bn`)),
                             }
@@ -224,7 +229,7 @@ export function EventCards({
                           checked={!inherited}
                           onCheckedChange={(checked) =>
                             onChange((state) =>
-                              setEventInherits(state, field, index, itemField, checked === true),
+                              setItemInherits(state, field, index, itemField, checked === true),
                             )
                           }
                         />
@@ -232,7 +237,7 @@ export function EventCards({
                           htmlFor={`${field.id}-${index}-${itemField.id}-inherit`}
                           className="text-xs font-normal text-muted-foreground"
                         >
-                          Different from the main event
+                          Different from the main {itemName}
                         </Label>
                       </div>
                     )}
@@ -245,7 +250,7 @@ export function EventCards({
       })}
 
       <Button variant="outline" size="sm" onClick={add} disabled={items.length >= max}>
-        Add {itemLabel.toLowerCase()}
+        Add {itemName}
       </Button>
     </div>
   );

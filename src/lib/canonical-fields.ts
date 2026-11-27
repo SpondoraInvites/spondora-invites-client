@@ -53,6 +53,8 @@ export interface Field {
 
   /** `type: "group"` only. `itemFields[].path` is relative to one item. */
   itemLabel?: string;
+  /** `type: "group"` only. The item field id the card header shows, after the index. */
+  itemTitle?: string;
   min?: number;
   max?: number;
   itemFields?: Field[];
@@ -206,6 +208,7 @@ export const CANONICAL_FIELDS: Field[] = [
     type: "group",
     bilingual: true,
     itemLabel: "Event",
+    itemTitle: "name",
     min: 1,
     max: 4,
     itemFields: [
@@ -258,6 +261,48 @@ export const CANONICAL_FIELDS: Field[] = [
         label: "Google Maps search",
         type: "text",
         inherits: true,
+      },
+    ],
+  },
+  {
+    // The couple's own timeline (WT-26). `label` is free text, so a template can put a
+    // year or a whole date there; every story renderer hides it when it is empty.
+    id: "story",
+    path: ["story", "chapters"],
+    section: "Our story",
+    type: "group",
+    bilingual: true,
+    itemLabel: "Chapter",
+    itemTitle: "title",
+    min: 1,
+    max: 6,
+    itemFields: [
+      {
+        id: "year",
+        path: ["label"],
+        label: "Year",
+        labelBn: "সাল",
+        type: "text",
+        bilingual: true,
+        hint: "A bare year, or a date like March 2021. Optional.",
+      },
+      {
+        id: "title",
+        path: ["title"],
+        label: "Title",
+        labelBn: "শিরোনাম",
+        type: "text",
+        bilingual: true,
+        required: true,
+      },
+      {
+        id: "description",
+        path: ["text"],
+        label: "Description",
+        labelBn: "বিবরণ",
+        type: "textarea",
+        bilingual: true,
+        required: true,
       },
     ],
   },
