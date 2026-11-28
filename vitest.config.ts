@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    // A real origin, so jsdom gives the tests a working localStorage (WT-15).
+    environmentOptions: { jsdom: { url: "http://localhost/" } },
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],

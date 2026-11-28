@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { templates, tierLabel, type Tier } from "@/data/templates";
+import { templates, tierLabel, type Tier } from "@/data/template-list";
 import { orderMessage, whatsappLink } from "@/data/site";
 import { PreviewFrame } from "./PreviewFrame";
 

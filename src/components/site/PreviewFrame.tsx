@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Monitor, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { tierLabel, type InviteTemplate } from "@/data/templates";
+import { DeviceToggle, type Device } from "@/components/editor/PreviewPane";
+import { tierLabel, type InviteTemplate } from "@/data/template-list";
 import { orderMessage, whatsappLink } from "@/data/site";
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
 }
 
 export function PreviewFrame({ template, onPrev, onNext }: Props) {
-  const [device, setDevice] = useState<"phone" | "desktop">("phone");
+  const [device, setDevice] = useState<Device>("phone");
   const [loaded, setLoaded] = useState<string | null>(null);
   const isLoading = loaded !== template.slug + device;
 
@@ -42,13 +43,8 @@ export function PreviewFrame({ template, onPrev, onNext }: Props) {
         <h2 className="mt-2 text-3xl text-primary">{template.name}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{template.description}</p>
         <p className="mt-4 font-display text-sm italic text-primary">Tap the seal to open. Turn sound on for nature audio or nasheed.</p>
-        <div className="mt-5 inline-flex rounded-full border border-border p-1">
-          {(["phone", "desktop"] as const).map((d) => (
-            <button key={d} onClick={() => setDevice(d)} aria-pressed={device === d}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${device === d ? "bg-primary text-primary-foreground" : "text-foreground/70"}`}>
-              {d === "phone" ? <Smartphone className="h-3.5 w-3.5" /> : <Monitor className="h-3.5 w-3.5" />}{d === "phone" ? "Phone" : "Desktop"}
-            </button>
-          ))}
+        <div className="mt-5">
+          <DeviceToggle device={device} onChange={setDevice} />
         </div>
         <div className="mt-6 flex flex-col gap-2">
           <Button asChild size="lg">

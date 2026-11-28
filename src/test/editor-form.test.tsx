@@ -1,0 +1,422 @@
+import { QueryClient } from "@tanstack/react-query";
+import { createMemoryHistory, createRouter, RouterContextProvider } from "@tanstack/react-router";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { routeTree } from "@/routeTree.gen";
+import { FieldRow } from "@/components/editor/FieldRow";
+import { FormSections } from "@/components/editor/FormSections";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
+import type { Field } from "@/lib/canonical-fields";
+import { seedTranslations, seedValues } from "@/lib/editor-form";
+import { Editor } from "@/routes/create.$templateSlug";
+import { scalarFields, type TemplateSnapshot } from "@/lib/fields";
+
+const base = TEMPLATE_SNAPSHOTS["template5-premium"]!;
+// The shell's "Back" is a <Link>, so the editor needs a router in context.
+const router = createRouter({
+  routeTree,
+  context: { queryClient: new QueryClient() },
+  history: createMemoryHistory(),
+});
+
+function renderEditor(snapshot: TemplateSnapshot) {
+  return render(
+    <RouterContextProvider router={router}>
+      <Editor snapshot={snapshot} />
+    </RouterContextProvider>,
+  );
+}
+const noop = () => {};
+const toggleField = base.fields.find((field) => field.type === "toggle");
+
+/** The Bangla inputs the form mounted, by their `-bn` id. */
+function banglaInputs(): Element[] {
+  return Array.from(document.querySelectorAll('input[id$="-bn"], textarea[id$="-bn"]'));
+}
+
+function renderForm(
+  snapshot: TemplateSnapshot,
+  fields: Field[],
+  options: { bilingual?: boolean; errors?: Record<string, string | undefined> } = {},
+) {
+  return render(
+    <FormSections
+      fields={fields}
+      values={seedValues(snapshot, fields)}
+      translations={seedTranslations(snapshot, fields)}
+      errors={options.errors ?? {}}
+      bilingual={options.bilingual ?? true}
+      onBilingualChange={noop}
+      toggleField={snapshot.fields.find((field) => field.type === "toggle")}
+      touched={new Set()}
+      onEdit={noop}
+      onBlur={noop}
+      onGroupChange={noop}
+    />,
+  );
+}
+
+/** Labels in DOM order, so a missing or reordered question fails the test. */
+function labels(): string[] {
+  return Array.from(document.querySelectorAll("label")).map((label) => label.textContent ?? "");
+}
+
+describe("the editor form", () => {
+  it("shows template5-premium's fields, grouped, and nothing else", () => {
+    renderForm(base, scalarFields(base));
+
+    expect(labels()).toEqual([
+      "Publish the Bangla version",
+      "Partner 1 name",
+      "১ম সাথীর নাম",
+      "Partner 2 name",
+      "২য় সাথীর নাম",
+      "Monogram letters",
+      "Bride's family line",
+      "কনের পারিবারিক পরিচয়",
+      "Groom's family line",
+      "বরের পারিবারিক পরিচয়",
+      "Venue name",
+      "স্থানের নাম",
+      "Address",
+      "ঠিকানা",
+      "Google Maps search",
+      "Wedding date & time",
+      "WhatsApp number",
+      "Reply by",
+    ]);
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(["Couple", "Family", "Where", "When", "RSVP"]);
+  });
+
+  it("renders the reply-by deadline as a date input", () => {
+    renderForm(base, scalarFields(base));
+
+    expect(screen.getByLabelText("Reply by")).toHaveAttribute("type", "date");
+  });
+
+  it("renders no deadline input when the template has no rsvp.deadline", () => {
+    // The sync script only emits the field for a template whose config has the path.
+    const withoutDeadline = {
+      ...base,
+      fields: base.fields.filter((field) => field.id !== "rsvpDeadline"),
+    };
+    renderForm(withoutDeadline, scalarFields(withoutDeadline));
+
+    expect(labels()).not.toContain("Reply by");
+  });
+
+  it("renders no family line when the template has no welcome.parents1 path", () => {
+    // The sync script derives `fields` from paths, so a missing path means a missing entry.
+    const withoutParents = {
+      ...base,
+      fields: base.fields.filter((field) => field.id !== "familyLine1"),
+    };
+    renderForm(base, scalarFields(withoutParents));
+
+    expect(labels()).not.toContain("Bride's family line");
+    expect(labels()).toContain("Groom's family line");
+  });
+});
+
+describe("bilingual inputs", () => {
+  const fields = scalarFields(base);
+
+  it("gives every field the bn tree carries a Bangla input, and no other field one", () => {
+    renderForm(base, fields);
+
+    // Both names, both family lines, the venue name and its address.
+    expect(banglaInputs()).toHaveLength(6);
+    expect(document.getElementById("partner1Name-bn")).toHaveValue("আয়েশা রহমান");
+    expect(document.getElementById("eventDateTime-bn")).toBeNull();
+    expect(document.getElementById("rsvpWhatsapp-bn")).toBeNull();
+    // Every required Bangla value is already filled, so no badge.
+    expect(screen.queryByText(/missing/)).toBeNull();
+  });
+
+  it("labels each Bangla input with its own field, not a shared word", () => {
+    renderForm(base, fields);
+
+    const banglaLabels = banglaInputs().map(
+      (input) => document.querySelector(`label[for="${input.id}"]`)?.textContent ?? "",
+    );
+
+    expect(banglaLabels).toEqual([
+      "১ম সাথীর নাম",
+      "২য় সাথীর নাম",
+      "কনের পারিবারিক পরিচয়",
+      "বরের পারিবারিক পরিচয়",
+      "স্থানের নাম",
+      "ঠিকানা",
+    ]);
+    expect(new Set(banglaLabels).size).toBe(banglaLabels.length);
+  });
+
+  it("removes the Bangla inputs and their errors when the toggle is off, and restores both", () => {
+    const errors = { "partner1Name:bn": "This is required." };
+    const { rerender } = renderForm(base, fields, { bilingual: true, errors });
+    const html = (bilingual: boolean) => (
+      <FormSections
+        fields={fields}
+        values={seedValues(base, fields)}
+        translations={seedTranslations(base, fields)}
+        errors={errors}
+        bilingual={bilingual}
+        onBilingualChange={noop}
+        toggleField={toggleField}
+        touched={new Set()}
+        onEdit={noop}
+        onBlur={noop}
+        onGroupChange={noop}
+      />
+    );
+
+    expect(banglaInputs()).toHaveLength(6);
+    expect(screen.getByText("This is required.")).toBeInTheDocument();
+
+    rerender(html(false));
+    expect(banglaInputs()).toHaveLength(0);
+    expect(screen.queryByText("This is required.")).toBeNull();
+    // Nothing could have held focus or reported an error in its place.
+    expect(screen.queryByLabelText("১ম সাথীর নাম")).toBeNull();
+
+    rerender(html(true));
+    expect(banglaInputs()).toHaveLength(6);
+    expect(screen.getByText("This is required.")).toBeInTheDocument();
+    // The values survived the round trip because the toggle never touched them.
+    expect(document.getElementById("partner1Name-bn")).toHaveValue("আয়েশা রহমান");
+  });
+
+  it("renders no Bangla input and no filter when the template has no bn tree", () => {
+    const englishOnly: TemplateSnapshot = { ...base, translations: {} };
+    renderForm(englishOnly, fields);
+
+    expect(banglaInputs()).toHaveLength(0);
+    expect(screen.queryByRole("radio", { name: "Both" })).toBeNull();
+    // The toggle still renders: it is a config field, not a translation.
+    expect(screen.getByRole("switch", { name: "Publish the Bangla version" })).toBeInTheDocument();
+  });
+
+  it("copes with a snapshot whose translations are null", () => {
+    const unMigrated = { ...base, translations: null } as unknown as TemplateSnapshot;
+    renderForm(unMigrated, fields);
+
+    expect(banglaInputs()).toHaveLength(0);
+    expect(screen.queryByText(/১ম সাথীর নাম/)).toBeNull();
+  });
+
+  it("keeps both values and the pair label when the filter switches", () => {
+    renderForm(base, fields);
+    const english = () => screen.getByLabelText("Partner 1 name") as HTMLInputElement;
+
+    expect(english()).toBeVisible();
+    expect(document.getElementById("partner1Name-bn")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Both" }));
+    expect(english()).toBeVisible();
+    expect(english().value).toBe("Ayesha Rahman");
+    expect(document.getElementById("partner1Name-bn")).toBeVisible();
+    expect(document.getElementById("partner1Name-bn")).toHaveValue("আয়েশা রহমান");
+
+    fireEvent.click(screen.getByRole("radio", { name: /বাংলা/ }));
+    expect(english()).not.toBeVisible();
+    expect(english().value).toBe("Ayesha Rahman");
+    expect(document.getElementById("partner1Name-bn")).toBeVisible();
+    expect(document.getElementById("partner1Name-bn")).toHaveValue("আয়েশা রহমান");
+  });
+
+  it("tells a screen reader which of the pair is Bangla", () => {
+    renderForm(base, fields);
+
+    const bangla = document.getElementById("partner1Name-bn")!;
+    expect(bangla.closest("[lang]")).toHaveAttribute("lang", "bn");
+    expect(screen.getByLabelText("১ম সাথীর নাম")).toBe(bangla);
+    expect(screen.getByLabelText("Partner 1 name")).not.toBe(bangla);
+  });
+});
+
+describe("FieldRow", () => {
+  const text: Field = {
+    id: "partner1Name",
+    path: ["couple", "name1"],
+    type: "text",
+    label: "Partner 1 name",
+  };
+
+  it("wires the label, hint, error and aria-invalid to the input", () => {
+    render(
+      <FieldRow
+        field={{ ...text, hint: "As printed on the card", required: true }}
+        value=""
+        error="This is required."
+        onChange={noop}
+        onBlur={noop}
+      />,
+    );
+
+    const input = screen.getByLabelText("Partner 1 name");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription("As printed on the card This is required.");
+  });
+
+  it("warns past four monogram characters without rejecting the value", () => {
+    render(
+      <FieldRow
+        field={{ ...text, id: "monogramInitials", derived: "initials", label: "Monogram letters" }}
+        value="SUMAIYA"
+        onChange={noop}
+        onBlur={noop}
+      />,
+    );
+
+    expect(screen.getByText("Longer monograms may not fit on the wax seal.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Monogram letters")).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it('does not warn about the template\'s own "A · I"', () => {
+    render(
+      <FieldRow
+        field={{ ...text, id: "monogramInitials", derived: "initials", label: "Monogram letters" }}
+        value="A · I"
+        onChange={noop}
+        onBlur={noop}
+      />,
+    );
+
+    expect(screen.queryByText("Longer monograms may not fit on the wax seal.")).toBeNull();
+  });
+
+  it("renders the Bangla input with its own id, lang and error", () => {
+    render(
+      <FieldRow
+        field={{ ...text, bilingual: true, labelBn: "১ম সাথীর নাম" }}
+        value="Ayesha Rahman"
+        onChange={noop}
+        onBlur={noop}
+        language="both"
+        bn={{ value: "আয়েশা রহমান", error: "This is required.", onChange: noop, onBlur: noop }}
+      />,
+    );
+
+    const bangla = document.getElementById("partner1Name-bn")!;
+    expect(bangla).toHaveValue("আয়েশা রহমান");
+    expect(bangla).toHaveAttribute("aria-invalid", "true");
+    expect(bangla.closest("[lang]")).toHaveAttribute("lang", "bn");
+    expect(screen.getByLabelText("১ম সাথীর নাম")).toBe(bangla);
+  });
+
+  it("falls back to the English label when a bilingual field has no Bangla one", () => {
+    render(
+      <FieldRow
+        field={{ ...text, bilingual: true }}
+        value="Ayesha Rahman"
+        onChange={noop}
+        onBlur={noop}
+        bn={{ value: "", onChange: noop, onBlur: noop }}
+      />,
+    );
+
+    expect(document.getElementById("partner1Name-bn")).toHaveAccessibleName("Partner 1 name");
+  });
+});
+
+describe("the missing-answer count", () => {
+  function count(): HTMLElement | null {
+    return screen.queryByRole("status");
+  }
+
+  it("counts a required Bangla answer that is empty although the English is filled", () => {
+    renderEditor(base);
+
+    expect(screen.getByLabelText("Venue name")).toHaveValue("Lakeshore Grand Ballroom");
+    expect(count()).toBeNull();
+
+    fireEvent.change(document.getElementById("venueName-bn")!, { target: { value: "" } });
+    fireEvent.change(document.getElementById("venueAddress-bn")!, { target: { value: " " } });
+
+    expect(count()).toHaveTextContent("2 missing");
+  });
+
+  it("rises when a blank event is added and falls as the event is filled", () => {
+    renderEditor(base);
+    expect(count()).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add event" }));
+
+    // A new card's tag and name are blank in both languages.
+    expect(count()).toHaveTextContent("4 missing");
+
+    for (const id of ["tag", "tag-bn", "name", "name-bn"]) {
+      fireEvent.change(document.getElementById(`events-1-${id}`)!, {
+        target: { value: "Mehendi" },
+      });
+    }
+
+    expect(count()).toBeNull();
+  });
+});
+
+describe("the editor shell", () => {
+  function frame(): Element {
+    return document.querySelector("iframe")!.parentElement!;
+  }
+
+  it("opens on the phone preview and widens it on demand", () => {
+    renderEditor(base);
+
+    const phone = screen.getByRole("button", { name: "Phone" });
+    expect(phone).toHaveAttribute("aria-pressed", "true");
+    expect(frame().className).toContain("max-w-[420px]");
+
+    fireEvent.click(screen.getByRole("button", { name: "Desktop" }));
+
+    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().className).not.toContain("max-w-[420px]");
+    // Only the width changes: the frame keeps the height its cover needs.
+    expect(frame().className).toContain("clamp(900px,82vh,1150px)");
+  });
+
+  it("says which origin failed instead of loading forever", () => {
+    vi.useFakeTimers();
+    renderEditor(base);
+
+    // A hung origin never fires `load`, so the pane gives up after its timeout.
+    act(() => vi.advanceTimersByTime(15_000));
+
+    expect(screen.getByText(/Could not load https:\/\/template5-premium.pages.dev/)).toBeVisible();
+    expect(screen.queryByText("Loading invitation…")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("catches an origin that is down even though the frame fires load", async () => {
+    const probe = vi.fn(() => Promise.reject(new Error("down")));
+    vi.stubGlobal("fetch", probe);
+    renderEditor(base);
+
+    // A dead server only shows the browser's error page, which still fires `load`.
+    fireEvent.load(document.querySelector("iframe")!);
+
+    expect(
+      await screen.findByText(/Could not load https:\/\/template5-premium.pages.dev/),
+    ).toBeVisible();
+    expect(probe).toHaveBeenCalledWith(
+      "https://template5-premium.pages.dev",
+      expect.objectContaining({ mode: "no-cors" }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("leaves Publish disabled until it is wired", () => {
+    renderEditor(base);
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+  });
+
+  it("says so when a design has no fields", () => {
+    renderEditor({ ...base, fields: [] });
+
+    expect(screen.getByText("This design has nothing to fill in yet.")).toBeVisible();
+  });
+});

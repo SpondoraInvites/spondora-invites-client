@@ -1,0 +1,344 @@
+/**
+ * The invite editor (WT-13 spike, generic form from WT-14a, dates from WT-14b, bilingual
+ *  inputs from WT-14c, draft persistence from WT-15).
+ *
+ * Values live in the draft and are written into the preview link's `#cfg=` hash.
+ * The shell is WT-18.
+ */
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+import { FormSections } from "@/components/editor/FormSections";
+import { DeviceToggle, PreviewPane, type Device } from "@/components/editor/PreviewPane";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { TEMPLATE_SNAPSHOTS } from "@/data/templates";
+import { useDraft } from "@/hooks/use-draft";
+import type { Field } from "@/lib/canonical-fields";
+import {
+  dateTargets,
+  deriveDateTime,
+  deriveRsvpDeadline,
+  rsvpDeadlineTargets,
+  type DateTimeContext,
+  type DerivedTargets,
+} from "@/lib/derive";
+import {
+  formErrors,
+  markVisited,
+  missingAnswers,
+  nextForm,
+  seedTranslations,
+  seedValues,
+  type FormState,
+} from "@/lib/editor-form";
+import { normaliseMonogram } from "@/lib/field-schema";
+import {
+  readPath,
+  resolveConfig,
+  resolveTranslations,
+  scalarFields,
+  seedTouched,
+  setAtPath,
+  type TemplateSnapshot,
+} from "@/lib/fields";
+import { templateOrigin } from "@/lib/template-origins";
+
+export const Route = createFileRoute("/create/$templateSlug")({
+  loader: ({ params }) => {
+    const snapshot = TEMPLATE_SNAPSHOTS[params.templateSlug];
+    if (!snapshot) throw notFound();
+    return { snapshot };
+  },
+  head: () => ({
+    meta: [{ title: "Invite editor (preview) — Spondora" }, { name: "robots", content: "noindex" }],
+  }),
+  notFoundComponent: MissingTemplate,
+  component: CreatePage,
+});
+
+function MissingTemplate() {
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-24">
+      <h1 className="text-2xl font-semibold">This design isn't in the editor yet</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        The editor only knows the designs that have been migrated to it.
+      </p>
+      <Button asChild className="mt-6">
+        <Link to="/create">Back to the editor</Link>
+      </Button>
+    </main>
+  );
+}
+
+/** The template's own zone and offset, so a picked wall-clock time is never recalculated. */
+function dateContext(snapshot: TemplateSnapshot): DateTimeContext {
+  const templateIso = readPath(snapshot.defaults, ["weddingDateTime"]);
+  const event = (
+    snapshot.defaults["events"] as { calTz?: string; calEnd?: string }[] | undefined
+  )?.[0];
+  const calEnd = event?.calEnd ?? "";
+  return {
+    offset: /[+-]\d{2}:\d{2}$/.exec(templateIso)?.[0] ?? "+06:00",
+    timeZone: event?.calTz ?? "Asia/Dhaka",
+    // A readable end keeps the event's duration: a 6–10 pm wedding stays 4 hours.
+    ...(/^\d{2}:\d{2}$/.test(calEnd) ? { previousCalEnd: calEnd } : {}),
+  };
+}
+
+/** Write the derived strings the resolver cannot reach: display paths and the Bangla copy. */
+function applyTargets(
+  config: Record<string, unknown>,
+  translations: Record<string, unknown>,
+  targets: DerivedTargets,
+) {
+  for (const [path, value] of targets.config) setAtPath(config, path, value);
+  for (const [path, value] of targets.translations) setAtPath(translations, path, value);
+}
+
+/** The template's language switch field, when its config has one. */
+function toggleField(snapshot: TemplateSnapshot) {
+  return snapshot.fields.find((field) => field.type === "toggle");
+}
+
+/** The full `#cfg=` hash for one set of form values. */
+function hashFor(
+  snapshot: TemplateSnapshot,
+  fields: Field[],
+  form: Pick<FormState, "values" | "translations" | "touched">,
+  bilingual: boolean,
+) {
+  const { values } = form;
+  const ctx = dateContext(snapshot);
+  const dateField = fields.find((field) => field.type === "datetime");
+  const deadlineField = fields.find((field) => field.type === "date");
+  const hasGroup = fields.some((field) => field.type === "group");
+
+  const localValue = dateField ? values[dateField.id] : "";
+  const local = typeof localValue === "string" ? localValue : "";
+  const date = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)
+    ? deriveDateTime(local, ctx)
+    : undefined;
+  // `<input type="date">` gives "2027-01-25"; an empty or half-picked day writes nothing.
+  const dayValue = deadlineField ? values[deadlineField.id] : "";
+  const day = typeof dayValue === "string" ? dayValue : "";
+  const deadline = /^\d{4}-\d{2}-\d{2}$/.test(day) ? deriveRsvpDeadline(day, ctx) : undefined;
+
+  // The date inputs' own writes are the derived strings below, never the raw input value.
+  const written = fields.filter((field) => field !== deadlineField);
+  const config = resolveConfig(
+    snapshot,
+    date ? written : written.filter((field) => field !== dateField),
+    date && dateField ? { ...values, [dateField.id]: date.iso } : values,
+    form.touched,
+  );
+
+  const translations = resolveTranslations(
+    snapshot,
+    fields,
+    form.translations,
+    values,
+    form.touched,
+  );
+  if (date) applyTargets(config, translations, dateTargets(date, { events: !hasGroup }));
+  if (deadline) applyTargets(config, translations, rsvpDeadlineTargets(deadline));
+
+  // Preview-only: no music loop or WhatsApp popups while typing.
+  for (const key of ["music", "rsvp"]) {
+    config[key] = { ...(config[key] as object), enabled: false };
+  }
+  // The toggle drives the preview's language switch instead: off hides it and pins English.
+  if (config["localization"]) {
+    config["localization"] = { ...(config["localization"] as object), enabled: bilingual };
+  }
+  // Bangla off: send the empty tree publish would send, so the preview cannot show it.
+  if (!bilingual && translations["bn"]) translations["bn"] = {};
+
+  // Send the template's own copy for every locale untouched. The hook replaces each
+  // locale wholesale, so sending nothing would keep it too.
+  const payload = Object.keys(translations).length ? { config, translations } : { config };
+  return `#cfg=${encodeURIComponent(JSON.stringify(payload))}`;
+}
+
+function CreatePage() {
+  const { snapshot } = Route.useLoaderData();
+  return <Editor key={snapshot.manifest.slug} snapshot={snapshot} />;
+}
+
+export function Editor({ snapshot }: { snapshot: TemplateSnapshot }) {
+  const [device, setDevice] = useState<Device>("phone");
+  const fields = useMemo(() => scalarFields(snapshot), [snapshot]);
+  const editorFields = useMemo(
+    () => [...fields, ...snapshot.fields.filter((field) => field.type === "group")],
+    [snapshot, fields],
+  );
+  const toggle = useMemo(() => toggleField(snapshot), [snapshot]);
+  // The toggle rides in `values`, so its boolean is part of the draft (WT-15).
+  const seed = useMemo<FormState>(() => {
+    const values = seedValues(snapshot, toggle ? [...editorFields, toggle] : editorFields);
+    const translations = seedTranslations(snapshot, editorFields);
+    return {
+      values,
+      translations,
+      touched: seedTouched(snapshot, editorFields, values, translations),
+    };
+  }, [snapshot, editorFields, toggle]);
+  const { form, setForm, status, clear, ready } = useDraft(snapshot, seed);
+  // Bangla is collected unless the template's own config says otherwise. A template with
+  // no toggle at all publishes English only.
+  const bilingual = toggle ? form.values[toggle.id] === true : false;
+  const allErrors = useMemo(
+    () => formErrors(editorFields, form, bilingual),
+    [editorFields, form, bilingual],
+  );
+  // A message shows only once its own input has been left (WT-14a's rule, form-wide).
+  const errors = useMemo(() => {
+    const visited = form.visited;
+    if (!visited?.size) return {};
+    return Object.fromEntries(Object.entries(allErrors).filter(([key]) => visited.has(key)));
+  }, [allErrors, form.visited]);
+  const missing = useMemo(
+    () => missingAnswers(editorFields, form, bilingual),
+    [editorFields, form, bilingual],
+  );
+  const [hash, setHash] = useState(() => hashFor(snapshot, editorFields, seed, bilingual));
+
+  // Debounced so the iframe remounts once after a burst of typing, not on every key.
+  useEffect(() => {
+    const timer = setTimeout(() => setHash(hashFor(snapshot, editorFields, form, bilingual)), 400);
+    return () => clearTimeout(timer);
+  }, [snapshot, editorFields, form, bilingual]);
+
+  const update = (field: Field, raw: string, bn = false) => {
+    setForm((prev) => nextForm(snapshot, fields, prev, field, raw, bn));
+  };
+
+  const blur = (field: Field, bn = false) => {
+    const key = bn ? `${field.id}:bn` : field.id;
+    const raw = bn ? form.translations[field.id] : form.values[field.id];
+    const current = typeof raw === "string" ? raw : "";
+    const value = !bn && field.derived === "initials" ? normaliseMonogram(current) : current;
+    setForm((prev) => {
+      const trimmed =
+        value === current
+          ? prev
+          : bn
+            ? { ...prev, translations: { ...prev.translations, [field.id]: value } }
+            : { ...prev, values: { ...prev.values, [field.id]: value } };
+      return markVisited(trimmed, key);
+    });
+  };
+
+  const setBilingual = (on: boolean) => {
+    if (!toggle) return;
+    setForm((prev) => ({ ...prev, values: { ...prev.values, [toggle.id]: on } }));
+  };
+
+  return (
+    <main className="w-full px-6 py-8 lg:px-10">
+      {/* Sticks below the site header (h-16, z-40) so it stays reachable on a 390px phone. */}
+      <div className="sticky top-16 z-20 -mx-6 flex items-center gap-3 border-b border-border bg-background/95 px-6 py-3 backdrop-blur lg:-mx-10 lg:px-10">
+        <Link
+          to="/create"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Link>
+        <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
+          {snapshot.manifest.name}
+        </span>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <DeviceToggle device={device} onChange={setDevice} />
+          <Button disabled title="Coming soon" size="sm">
+            Publish
+          </Button>
+        </div>
+      </div>
+
+      {/* 4rem header + this 2rem padding top and bottom is what the viewport must give up. */}
+      <div className="mt-8 flex flex-col gap-8 lg:h-[max(900px,calc(100vh-8rem))] lg:flex-row lg:items-stretch lg:gap-10">
+        <div className="lg:min-w-0 lg:flex-1">
+          <PreviewPane
+            src={`${templateOrigin(snapshot.manifest.slug, snapshot.manifest.origin)}${hash}`}
+            title={`${snapshot.manifest.name} live preview`}
+            slug={snapshot.manifest.slug}
+            device={device}
+          />
+        </div>
+
+        <aside className="mx-auto w-full max-w-sm shrink-0 space-y-5 lg:mx-0 lg:h-full lg:w-[26rem] lg:max-w-none lg:overflow-y-auto">
+          <div>
+            <span className="eyebrow text-primary">Editor preview</span>
+            <h1 className="mt-2 text-3xl text-primary">{snapshot.manifest.name}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              These inputs write straight into the preview link. Your details are saved in this
+              browser as you type.
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "\u00a0"}
+              </span>
+              {missing.count > 0 && (
+                <span role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                  {missing.count} missing
+                </span>
+              )}
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  Start over
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start over?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This clears the details saved in this browser and puts the sample data back. It
+                    cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep my details</AlertDialogCancel>
+                  <AlertDialogAction onClick={clear}>Start over</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          {editorFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">This design has nothing to fill in yet.</p>
+          ) : ready ? (
+            <FormSections
+              fields={editorFields}
+              values={form.values}
+              translations={form.translations}
+              errors={errors}
+              bilingual={bilingual}
+              onBilingualChange={setBilingual}
+              toggleField={toggle}
+              touched={form.touched}
+              onEdit={update}
+              onBlur={blur}
+              onGroupChange={setForm}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading your draft…</p>
+          )}
+        </aside>
+      </div>
+    </main>
+  );
+}

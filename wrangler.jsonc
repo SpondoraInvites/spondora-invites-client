@@ -1,0 +1,5 @@
+{
+  // Pin the Worker name: nitro otherwise derives it from the account and repo name,
+  // which does not match the Worker that Cloudflare Workers Builds deploys to.
+  "name": "spondora-invites-client"
+}
